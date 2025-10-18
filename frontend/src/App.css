@@ -1,0 +1,305 @@
+:root {
+  --frame-width: 450px;
+  --frame-height: 480px;
+  --frame-thickness: 30px;
+  --mat-offset: 20px;
+  --mat-border: 50px;
+  --acrylic-opacity: 0.15;
+  --frame-color: #faf4d0;
+  /* outer frame color */
+  --mat-color: #ffffff;
+  /* inner mat color */
+  --media-bg: #c7cacc;
+}
+
+/* Scene setup */
+#scene {
+  width: var(--frame-width);
+  height: var(--frame-height);
+  perspective: 1200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 40px auto;
+}
+
+/* Frame container */
+.frame {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease, box-shadow 0.6s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+}
+
+/* Hover depth & motion */
+.frame:hover {
+  transform: rotateY(-35deg) rotateX(0deg);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.4);
+}
+
+/* Layer 1: Backing */
+.frame-backing {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  /* white front face */
+  border: 1px solid var(--frame-color);
+  transform: translateZ(-20px);
+  transform-style: preserve-3d;
+  /* important! allows pseudo 3D layering */
+}
+
+/* Add black sides for depth illusion */
+.frame-backing::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  /* depth size = same as translateZ value */
+  background: var(--frame-color);
+  /* Frame color */
+  transform-origin: top;
+  transform: rotateX(90deg);
+  box-shadow: inset -5px 0 15px rgba(0, 0, 0, 0.1);
+  /* shadow along inner edge */
+
+  /* tilt downward to form back side */
+}
+
+/* right side (depth) */
+.frame-backing::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -20px;
+  width: 20px;
+  height: 100%;
+  background: var(--frame-color, #000);
+  /* right depth color */
+  transform-origin: left;
+  transform: rotateY(-90deg);
+  box-shadow: inset -5px 0 15px rgba(0, 0, 0, 0.1);
+  /* shadow along inner edge */
+
+}
+
+/* Left side */
+.frame-backing-left {
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 20px;
+  height: 100%;
+  background: var(--frame-color);
+  transform-origin: left;
+  transform: rotateY(60deg);
+  /* box-shadow: inset -5px 0 15px rgba(0, 0, 0, 0.1); */
+  /* shadow along inner edge */
+
+}
+
+/* Top side */
+.frame-backing-top {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  background: var(--frame-color);
+  transform-origin: top;
+  transform: rotateX(-90deg);
+  box-shadow: inset -5px 0 15px rgba(0, 0, 0, 0.1);
+  /* shadow along inner edge */
+
+}
+
+/* Layer 2: Mat (white inner area inside frame) */
+.frame-mat {
+  position: absolute;
+  width: calc(100% - (var(--frame-thickness) * 2) - (var(--mat-border) * 2));
+  height: calc(100% - (var(--frame-thickness) * 2) - (var(--mat-border) * 2));
+  top: calc(var(--frame-thickness) + var(--mat-border));
+  left: calc(var(--frame-thickness) + var(--mat-border));
+  transform: translateZ(-10px);
+  box-sizing: border-box;
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+/* Layer 3: Media (image area) */
+.frame-media {
+  position: absolute;
+  width: calc(100% - 100px);
+  height: calc(100% - 100px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateZ(0);
+  background: var(--media-bg);
+  border: 4px solid #fff8eb;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 5;
+ overflow: hidden;
+}
+
+/* Shine overlay */
+.media-shine,
+.media-shine.shine-2 {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  filter: blur(10px);
+  transition: transform 0.6s ease, opacity 0.6s ease;
+  opacity: 1; /* keep subtle shine visible */
+}
+
+/* Gradients */
+.media-shine {
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  transform: rotate(25deg);
+}
+
+.media-shine.shine-2 {
+  background: linear-gradient(
+    60deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
+  transform: rotate(60deg);
+}
+
+/* Move shine on hover */
+.frame:hover .media-shine {
+  transform: rotate(45deg) translateX(30%) translateY(5%);
+}
+
+.frame:hover .media-shine.shine-2 {
+  transform: rotate(45deg) translateX(60%) translateY(5%);
+}
+
+
+/* Layer 4: Acrylic reflection */
+.frame-acrylic {
+  position: absolute;
+  /* width: calc(100% - 40px);
+  height: calc(100% - 40px);
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, var(--acrylic-opacity)); */
+  transform: translateZ(10px);
+  overflow: hidden;
+}
+
+.frame-acrylic::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120%;
+  height: 120%;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.35), transparent 70%);
+  transform: translate(-10%, -10%);
+  mix-blend-mode: screen;
+}
+
+/* Layer 5: Frame front (outer face of frame) */
+.frame-front {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  transform: translateZ(0);
+  pointer-events: none;
+}
+
+.frame-front::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--frame-thickness) * -1);
+  left: calc(var(--frame-thickness) * -1);
+  right: calc(var(--frame-thickness) * -1);
+  bottom: calc(var(--frame-thickness) * -1);
+  border-style: solid;
+  border-color: var(--frame-color);
+  border-width: var(--frame-thickness);
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+/* 3D sides (depth color same as frame color) */
+.frame-side {
+  position: absolute;
+  background: var(--frame-color);
+  box-sizing: border-box;
+  transition: 0.3s ease;
+}
+
+/* Vertical sides */
+.frame-side.left,
+.frame-side.right {
+  width: var(--frame-thickness);
+  height: 100%;
+  top: 0;
+}
+
+.frame-side.left {
+  left: 0;
+  transform: rotateY(90deg) translateX(-50%);
+  transform-origin: left;
+}
+
+.frame-side.right {
+  right: 0;
+  transform: rotateY(-90deg) translateX(50%);
+  transform-origin: right;
+}
+
+/* Horizontal sides */
+.frame-side.top,
+.frame-side.bottom {
+  width: 100%;
+  height: var(--frame-thickness);
+  left: 0;
+}
+
+.frame-side.top {
+  top: 0;
+  transform: rotateX(-90deg) translateY(-50%);
+  transform-origin: top;
+}
+
+.frame-side.bottom {
+  bottom: 0;
+  transform: rotateX(90deg) translateY(50%);
+  transform-origin: bottom;
+
+}
+
+/* Responsive scaling */
+/* Responsive scaling for mobile */
+@media (max-width: 768px) {
+  #scene {
+    width: 45vw !important;   /* Override inline width */
+    height: 45vw !important;  /* Same as width for square */
+  }
+
+  .frame:hover {
+    transform: rotateY(10deg) rotateX(3deg); /* smaller tilt on mobile */
+  }
+}
+
