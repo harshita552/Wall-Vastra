@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import noUiSlider from "nouislider";
+import * as THREE from "three";
 import "nouislider/dist/nouislider.css";
 
 export default function FrameCustomizer() {
     const [matBorder, setMatBorder] = useState(0); // default mat = 0
-    const [matColor, setMatColor] = useState("rgb(255,255,255)");
+    const [matColor, setMatColor] = useState("rgb(33,33,33)"); // black as default
 
     // Initialize noUiSlider
     useEffect(() => {
@@ -57,19 +58,30 @@ export default function FrameCustomizer() {
     }, [matBorder]);
 
     const colors = [
-        { name: "White", value: "rgb(255,255,255)" },
-        { name: "Black", value: "rgb(33,33,33)" },
-        { name: "Beige", value: "rgb(245,245,220)" },
-        { name: "Gray", value: "rgb(200,200,200)" },
-        { name: "Ivory", value: "rgb(255,255,240)" },
-        { name: "Charcoal", value: "rgb(54,54,54)" },
+        { name: "Mat color: Black", value: "rgb(33,33,33)" },
+        { name: "Mat color: White", value: "rgb(255,255,255)" },
+        { name: "Mat color: Off white", value: "rgb(255, 254, 227)" },
+
+        // Add more if needed
     ];
 
+    // Change mat color on click (affects both UI and GLB model)
     const handleColorChange = (colorValue) => {
         setMatColor(colorValue);
-        const frameBacking = document.querySelector(".frame-backing");
-        if (frameBacking) frameBacking.style.backgroundColor = colorValue;
+
+        // ✅ Change mesh color inside the loaded GLB model
+        if (window.__frameModel) {
+            window.__frameModel.traverse((child) => {
+                if (
+                    child.isMesh &&
+                    ["First_Mat_top", "First_Mat_bottom", "First_Mat_left", "First_Mat_right"].includes(child.name)
+                ) {
+                    child.material.color.set(new THREE.Color(colorValue));
+                }
+            });
+        }
     };
+
 
     return (
         <div>
@@ -77,13 +89,15 @@ export default function FrameCustomizer() {
             <div
                 id="new_mat_slider"
                 style={{
-                    // width: "50%",
+                    marginTop: "30px",
                     marginBottom: "20px",
                     marginLeft: 0,
                 }}
             ></div>
 
             {/* Mat color buttons */}
+            <label className="block text-gray-700 font-semibold mb-1">Mat Color</label>
+
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {colors.map((c) => (
                     <button

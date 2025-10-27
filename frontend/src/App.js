@@ -24,7 +24,7 @@ function App() {
         {/* Step 3: Collage Layout Selection */}
         <Route path="/layout" element={<CollageLayoutSelector onSelectLayout={setSelectedLayout} />} />
 
-          <Route path="/glb" element={<GlbFrame onSelectLayout={setSelectedLayout} />} />
+        <Route path="/glb" element={<GlbFrame onSelectLayout={setSelectedLayout} />} />
       </Routes>
     </Router>
   );

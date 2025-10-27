@@ -38,7 +38,7 @@ export default function FrameTypeSelection() {
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center py-12 px-4 md:px-8">
+        <div className="min-h-screen bg-white flex flex-col items-center py-12 px-4 md:px-8 ">
             {/* Heading */}
             <h2 className="text-2xl md:text-3xl font-bold mb-2 text-center">
                 What would you like to customise?
@@ -89,8 +89,8 @@ export default function FrameTypeSelection() {
                             {/* Select button */}
                             <button
                                 className="mt-4 bg-gray-300 text-gray-800 px-6 py-2 font-medium
-    hover:bg-gray-500 hover:text-white transition-opacity 
-    md:opacity-0 md:group-hover:opacity-100"
+                                           hover:bg-gray-500 hover:text-white transition-opacity 
+                                           md:opacity-0 md:group-hover:opacity-100"
                             >
                                 Select
                             </button>
