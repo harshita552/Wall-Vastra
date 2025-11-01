@@ -1,4 +1,3 @@
-// src/components/CollageLayoutSelector.jsx
 import React, { useRef, useState } from "react";
 import { ChevronRightIcon, InformationCircleIcon, ShoppingCartIcon } from "@heroicons/react/24/solid";
 import Frame3D from "./Frame3D.jsx";
@@ -7,9 +6,7 @@ import Cropper from "react-easy-crop";
 import getCroppedImg from "../utils/cropImage.js"; // we’ll define this helper
 import * as THREE from "three";
 
-
 const CollageLayoutSelector = ({ onSelectLayout }) => {
-    const frameRef = useRef(null);
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
@@ -21,7 +18,24 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const fileInputRef = useRef(null); // ✅ Create ref for file input
 
     const [selectedMatStyle, setSelectedMatStyle] = useState("No Mat");
-    const [tempMatSelection, setTempMatSelection] = useState(selectedMatStyle);
+    const [tempMatSelection, setTempMatSelection] = useState("No Mat");
+    const handleFrameSelect = (textureUrl) => {
+        setFrameColor(textureUrl);
+
+        // 🔗 Update the 3D model instantly (if loaded)
+        if (window.__frameModel) {
+            window.__frameModel.traverse((child) => {
+                if (child.isMesh && child.name === "FRAME_TOP") {
+                    const texture = new THREE.TextureLoader().load(textureUrl);
+                    texture.flipY = false;
+                    texture.colorSpace = THREE.SRGBColorSpace;
+
+                    child.material.map = texture;
+                    child.material.needsUpdate = true;
+                }
+            });
+        }
+    };
 
     const matOptions = [
         { title: "No Mat", desc: "No mat applied to the frame." },
@@ -30,18 +44,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         { title: "Island", desc: "Floating mat for modern style." },
     ];
 
-    const [matColor, setMatColor] = useState("#f8f8f8"); // default Off-white
-
-    // Handlers
-    const toggleMatRow = () => setOpenMatRow(!openMatRow);
-    const applyMatSelection = () => {
-        setSelectedMatStyle(tempMatSelection);
-        setOpenMatRow(false);
-    };
-    const cancelMatSelection = () => {
-        setTempMatSelection(selectedMatStyle);
-        setOpenMatRow(false);
-    };
 
     const frameOptions = [
         {
@@ -111,6 +113,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [selectedArtType, setSelectedArtType] = useState("Photo Print");
     const [tempSelection, setTempSelection] = useState("Photo Print");
     const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [floatType, setFloatType] = useState("none");
 
     const toggleAdvanced = () => setAdvancedOpen(!advancedOpen);
     // Canvas edge selection
@@ -204,20 +207,12 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         }));
     };
 
-    const [copied, setCopied] = useState(false);
-
-    const handleShare = () => {
-        navigator.clipboard.writeText(window.location.href)
-            .then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000); // hide after 2 sec
-            })
-            .catch((err) => console.error("Failed to copy!", err));
-    };
 
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+    const [lockAspect, setLockAspect] = useState(true);
+
 
     const onCropComplete = (croppedArea, croppedAreaPixels) => {
         setCroppedAreaPixels(croppedAreaPixels);
@@ -281,13 +276,11 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
         }
     };
 
-
-
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-screen container mx-0 max-w-full">
             {/* Left Column - Frame Preview */}
             <div
-                className="w-full lg:w-7/12 bg-gray-100 flex justify-center items-center p-2 perspective-1000 left-frame lg:static fixed top-0 z-20"
+                className="w-full lg:w-10/12 bg-gray-100 flex justify-center items-center p-2 perspective-1000 left-frame lg:static fixed top-0 z-20"
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
@@ -300,9 +293,13 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                     canvasEdge={canvasEdge}
                     frameThickness={frameThickness}
                     frameColor={frameColor}
-                    frameTexture={frameColor}    // <-- add this
+                    frameTexture={frameColor}
                     matBorder={matBorder}
+                    selectedMatStyle={openMatRow ? tempMatSelection : selectedMatStyle}
+                    artWidth={artWidth}
+                    artHeight={artHeight}
                 />
+
             </div>
 
             {/* Right Column - Controls */}
@@ -310,10 +307,10 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                            mt-[400px] lg:mt-0 h-[calc(100vh-480px)] lg:h-screen">
                 <div className="flex-1 space-y-4">
 
-                    {/* SELECT YOUR SERVICE */}
+                    {/* WHAT ARE YOU FRAMING */}
                     <div className="mb-4 w-full relative">
                         <label className="block text-gray-700 font-semibold mb-1">
-                            SELECT YOUR SERVICE
+                            What are you framing?
                         </label>
 
                         <div className="relative">
@@ -324,27 +321,51 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                 onBlur={() => setShowTooltip(false)}
                                 className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-[#4598e2] focus:border-[#4598e2]"
                             >
-                                <option value="printAndFrame">Print and Frame</option>
-                                <option value="frameOnly">Frame Only</option>
-                                <option value="mailIn">Studio Mail-in</option>
+                                <option value="default">Please select</option>
+                                <option value="digitalPhoto">
+                                    Digital Photo - For digital photos/art that need to be printed and framed.
+                                </option>
+                                <option value="myArtwork">
+                                    My Artwork (Frame only) - For existing artwork that needs a frame.
+                                </option>
+                                <option value="generateAI">
+                                    Generate via AI - Create an artwork via AI for framing.
+                                </option>
                             </select>
 
-                            {showTooltip && (
+                            {/* Tooltip / Description */}
+                            {showTooltip && selectedService !== "default" && (
                                 <p className="text-sm text-gray-500 mt-1">
-                                    {selectedService === "printAndFrame" &&
+                                    {selectedService === "digitalPhoto" &&
                                         "For digital photos/art that need to be printed and framed."}
-                                    {selectedService === "frameOnly" &&
+                                    {selectedService === "myArtwork" &&
                                         "For existing artwork that needs a frame."}
-                                    {selectedService === "mailIn" &&
-                                        "Have us pick-up your artwork, and we’ll handcraft the frame exactly as you design it online."}
+                                    {selectedService === "generateAI" &&
+                                        "Generate an artwork via AI to frame."}
                                 </p>
                             )}
                         </div>
+
+                        {/* WhatsApp help message */}
+                        <p className="text-sm text-gray-500 mt-1">
+                            Choose an option to continue or{" "}
+                            <a
+                                href={`https://wa.me/919899354550?text=${encodeURIComponent(
+                                    "Hi Team Wall Vastra, I have a query regarding frame customization. Kindly call me back to assist."
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#25D366] underline font-medium"
+                            >
+                                WhatsApp us
+                            </a>{" "}
+                            if you have any questions
+                        </p>
                     </div>
 
                     {/* Art Type Card */}
                     {/* Show Art Type only for Print and Frame or Studio Mail-in */}
-                    {(selectedService === "printAndFrame" || selectedService === "mailIn") && (
+                    {selectedService === "default" && (
                         <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
                             <table className="table-auto w-full text-sm">
                                 <tbody>
@@ -386,13 +407,13 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                     <div className="flex justify-between mt-2">
                                                         <button
                                                             onClick={applySelection}
-                                                            className="bg-[#752650] text-white font-semibold py-1.5 px-3 rounded hover:bg-[#a82f70] transition-colors"
+                                                            className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-200 hover:text-black"
                                                         >
                                                             APPLY
                                                         </button>
                                                         <button
                                                             onClick={cancelSelection}
-                                                            className="border border-gray-400 text-gray-600 font-semibold py-1.5 px-3 rounded hover:bg-gray-200 transition-colors"
+                                                            className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto  hover:bg-black hover:text-white"
                                                         >
                                                             CANCEL
                                                         </button>
@@ -406,7 +427,6 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                         </div>
                     )}
 
-
                     {/* Art Dimensions Card */}
                     <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
                         <table className="table-auto w-full text-sm">
@@ -417,35 +437,57 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                 >
                                     <td className="px-2 py-2 text-gray-700 font-semibold">Art Dimensions</td>
                                     <td className="px-2 py-2 flex justify-end">
-                                        <div className="w-5">
-                                            <ChevronRightIcon
-                                                className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openDimensions ? "rotate-90" : ""
-                                                    }`}
-                                            />
-                                        </div>
+                                        <ChevronRightIcon
+                                            className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openDimensions ? "rotate-90" : ""
+                                                }`}
+                                        />
                                     </td>
                                 </tr>
 
                                 <tr>
                                     <td colSpan={2} className="p-0">
                                         <div
-                                            className={`transition-all duration-500 overflow-hidden ${openDimensions ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
+                                            className={`transition-all duration-500 overflow-hidden ${openDimensions ? "max-h-[350px] opacity-100" : "max-h-0 opacity-0"
                                                 }`}
                                         >
-                                            <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-2">
-                                                <div className="flex items-center gap-4">
+                                            <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-3">
+                                                {/* Aspect Ratio Lock */}
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="lockAspect"
+                                                        checked={lockAspect}
+                                                        onChange={() => setLockAspect(!lockAspect)}
+                                                    />
+                                                    <label htmlFor="lockAspect" className="text-sm text-gray-700 font-medium">
+                                                        Lock aspect ratio
+                                                    </label>
+                                                </div>
+
+                                                {/* Width & Height */}
+                                                <div className="flex flex-wrap gap-4">
                                                     {/* Width */}
                                                     <div className="flex items-center gap-2">
-                                                        <label className="text-gray-700 font-semibold">
-                                                            Width (inches)
-                                                        </label>
+                                                        <label className="text-gray-700 font-semibold">Width (in)</label>
                                                         <input
                                                             type="number"
                                                             value={artWidth}
+                                                            min={1}
+                                                            max={72}
                                                             onChange={(e) => {
                                                                 const newWidth = parseFloat(e.target.value);
+                                                                if (!newWidth || newWidth <= 0) return;
+
+                                                                if (lockAspect && artHeight > 0) {
+                                                                    const aspect = artWidth / artHeight;
+                                                                    const newHeight = newWidth / aspect;
+                                                                    setArtHeight(Number(newHeight.toFixed(2)));
+                                                                    updatePhotoScale(newWidth, newHeight);
+                                                                } else {
+                                                                    setArtWidth(newWidth);
+                                                                    updatePhotoScale(newWidth, artHeight);
+                                                                }
                                                                 setArtWidth(newWidth);
-                                                                updatePhotoScale(newWidth, artHeight); // 🔥 Live update
                                                             }}
                                                             className="border rounded p-1 w-20"
                                                         />
@@ -453,46 +495,57 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                                                     {/* Height */}
                                                     <div className="flex items-center gap-2">
-                                                        <label className="text-gray-700 font-semibold">
-                                                            Height (inches)
-                                                        </label>
+                                                        <label className="text-gray-700 font-semibold">Height (in)</label>
                                                         <input
                                                             type="number"
                                                             value={artHeight}
+                                                            min={1}
+                                                            max={72}
                                                             onChange={(e) => {
                                                                 const newHeight = parseFloat(e.target.value);
+                                                                if (!newHeight || newHeight <= 0) return;
+
+                                                                if (lockAspect && artWidth > 0) {
+                                                                    const aspect = artWidth / artHeight;
+                                                                    const newWidth = newHeight * aspect;
+                                                                    setArtWidth(Number(newWidth.toFixed(2)));
+                                                                    updatePhotoScale(newWidth, newHeight);
+                                                                } else {
+                                                                    setArtHeight(newHeight);
+                                                                    updatePhotoScale(artWidth, newHeight);
+                                                                }
                                                                 setArtHeight(newHeight);
-                                                                updatePhotoScale(artWidth, newHeight); // 🔥 Live update
                                                             }}
                                                             className="border rounded p-1 w-20"
                                                         />
                                                     </div>
                                                 </div>
 
-                                                <div className="text-gray-700 text-sm space-y-1">
+                                                {/* Calculated dimensions */}
+                                                <div className="text-gray-700 text-sm space-y-1 mt-2">
                                                     <p>
                                                         <span className="font-semibold">Frame interior:</span>{" "}
-                                                        {parseFloat(artWidth) + 3} × {parseFloat(artHeight) + 3} inches
+                                                        {(artWidth + 3).toFixed(2)} × {(artHeight + 3).toFixed(2)} in
                                                     </p>
                                                     <p>
                                                         <span className="font-semibold">Frame exterior:</span>{" "}
-                                                        {parseFloat(artWidth) + 3.875} ×{" "}
-                                                        {parseFloat(artHeight) + 3.875} inches
+                                                        {(artWidth + 3.875).toFixed(2)} × {(artHeight + 3.875).toFixed(2)} in
                                                     </p>
                                                     <p>
                                                         <span className="font-semibold">Paper dimensions:</span>{" "}
-                                                        {artWidth} × {artHeight} inches
+                                                        {artWidth} × {artHeight} in
                                                     </p>
                                                 </div>
 
-                                                <div className="flex justify-between mt-2">
+                                                {/* Apply / Cancel */}
+                                                <div className="flex justify-between mt-3">
                                                     <button
                                                         onClick={() => {
                                                             setAppliedDimensions({ width: artWidth, height: artHeight });
                                                             setOpenDimensions(false);
-                                                            updatePhotoScale(artWidth, artHeight); // ✅ Apply also updates
+                                                            updatePhotoScale(artWidth, artHeight);
                                                         }}
-                                                        className="bg-[#752650] text-white font-semibold py-1.5 px-3 rounded hover:bg-[#a82f70] transition-colors"
+                                                        className="text-white bg-[#752650] hover:bg-gray-200 hover:text-black px-4 py-2 transition"
                                                     >
                                                         APPLY
                                                     </button>
@@ -502,12 +555,9 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                             setArtWidth(appliedDimensions.width);
                                                             setArtHeight(appliedDimensions.height);
                                                             setOpenDimensions(false);
-                                                            updatePhotoScale(
-                                                                appliedDimensions.width,
-                                                                appliedDimensions.height
-                                                            ); // ✅ revert live view
+                                                            updatePhotoScale(appliedDimensions.width, appliedDimensions.height);
                                                         }}
-                                                        className="border border-gray-400 text-gray-600 font-semibold py-1.5 px-3 rounded hover:bg-gray-200 transition-colors"
+                                                        className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition"
                                                     >
                                                         CANCEL
                                                     </button>
@@ -519,6 +569,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             </tbody>
                         </table>
                     </div>
+
 
                     {/* 4. UPLOAD / GENERATE AI */}
                     {/* Show Upload / Generate AI only for Print and Frame */}
@@ -545,8 +596,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                         type="button"
                                         onClick={handleApplyCrop}
                                         disabled={!selectedFile}
-                                        className={`px-4 py-2 rounded-md text-white font-medium transition ${selectedFile
-                                            ? "bg-[#752650] hover:bg-[#5c1e3e]"
+                                        className={`text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors ${selectedFile
+                                            ? "bg-[#752650] hover:bg-gray-100 hover:text-black"
                                             : "bg-gray-400 cursor-not-allowed"
                                             }`}
                                     >
@@ -573,7 +624,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                 window.__photoMesh.material.needsUpdate = true;
                                             }
                                         }}
-                                        className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+                                        className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto  hover:bg-black hover:text-white"
                                     >
                                         Cancel
                                     </button>
@@ -610,8 +661,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                         disabled={isGenerating}
                                         className={`${isGenerating
                                             ? "bg-gray-400 cursor-not-allowed"
-                                            : "bg-[#752650] hover:bg-[#a82f70]"
-                                            } text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded text-sm sm:text-base w-full sm:w-auto transition-colors`}
+                                            : "bg-[#752650] hover:bg-gray-100 hover:text-black"
+                                            } text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors`}
                                     >
                                         {isGenerating
                                             ? "Generating..."
@@ -622,7 +673,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                                     <button
                                         onClick={handleCancel}
-                                        className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 rounded text-sm sm:text-base w-full sm:w-auto"
+                                        className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto  hover:bg-black hover:text-white"
                                     >
                                         Cancel
                                     </button>
@@ -651,7 +702,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                 <div
                                     key={frame.name}
                                     className="relative group cursor-pointer"
-                                    onClick={() => setFrameColor(frame.src)}
+                                    onClick={() => handleFrameSelect(frame.src)}
                                 >
                                     <img
                                         src={frame.src}
@@ -723,20 +774,30 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                             <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-2">
 
                                                 {/* Apply & Cancel Buttons */}
+                                                {/* Apply & Cancel Buttons */}
                                                 <div className="flex justify-between mb-2">
                                                     <button
-                                                        onClick={() => { setSelectedMatStyle(tempMatSelection); setOpenMatRow(false); }}
-                                                        className="bg-[#752650] text-white font-semibold py-1.5 px-3 rounded hover:bg-[#a82f70] transition-colors"
+                                                        onClick={() => {
+                                                            setSelectedMatStyle(tempMatSelection); // confirm selection
+                                                            setOpenMatRow(false);
+                                                        }}
+                                                        className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-100 hover:text-black"
                                                     >
                                                         APPLY
                                                     </button>
+
                                                     <button
-                                                        onClick={() => { setTempMatSelection(selectedMatStyle); setOpenMatRow(false); }}
-                                                        className="border border-gray-400 text-gray-600 font-semibold py-1.5 px-3 rounded hover:bg-gray-200 transition-colors"
+                                                        onClick={() => {
+                                                            setTempMatSelection(selectedMatStyle); // revert to previously confirmed selection
+                                                            setOpenMatRow(false);
+                                                        }}
+                                                        className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto hover:bg-black hover:text-white"
                                                     >
                                                         CANCEL
                                                     </button>
                                                 </div>
+
+
 
                                                 {/* Mat Options */}
                                                 {matOptions.map((item) => (
@@ -748,16 +809,18 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                             <p className="font-semibold text-gray-800">{item.title}</p>
                                                             <p className="text-gray-500 text-xs">{item.desc}</p>
                                                         </div>
+
                                                         <input
                                                             type="radio"
                                                             name="matStyle"
                                                             value={item.title}
                                                             checked={tempMatSelection === item.title}
                                                             onChange={(e) => setTempMatSelection(e.target.value)}
-                                                            className="accent-[#4598e2] w-4 h-4"
+                                                            className="accent-[#4598e2] w-4 h-4 cursor-pointer"
                                                         />
                                                     </div>
                                                 ))}
+
 
                                             </div>
                                         </div>
@@ -790,7 +853,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                     {/* 10. ADD TO CART BUTTON */}
                     <div className="flex gap-2 mt-2">
-                        <button className="flex-1 bg-[#752650] text-white px-3 py-1.5 rounded hover:bg-[#a82f70] transition-colors flex items-center justify-center gap-1.5">
+                        <button className="flex-1 bg-[#752650] text-white px-3 py-2.5 hover:bg-gray-100 hover:text-black transition-colors flex items-center justify-center gap-1.5">
                             <ShoppingCartIcon className="w-4 h-4" /> Add to Cart
                         </button>
                     </div>
@@ -895,14 +958,13 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                         <div className="flex justify-between mt-3">
                                                             <button
                                                                 onClick={applyGlassSelection}
-                                                                className="bg-[#752650] text-white font-semibold py-1.5 px-3 rounded hover:bg-[#a82f70] transition-colors"
+                                                                className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-200 hover:text-black"
                                                             >
                                                                 APPLY
                                                             </button>
                                                             <button
                                                                 onClick={cancelGlassSelection}
-                                                                className="border border-gray-400 text-gray-600 font-semibold py-1.5 px-3 rounded hover:bg-gray-200 transition-colors"
-                                                            >
+                                                                className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto  hover:bg-black hover:text-white"                                                            >
                                                                 CANCEL
                                                             </button>
                                                         </div>

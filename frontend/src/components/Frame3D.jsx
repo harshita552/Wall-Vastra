@@ -3,8 +3,10 @@ import "../App.css";
 import { PhotoIcon, DevicePhoneMobileIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import GlbFrame from "./GlbFrame";
 
-export default function Frame3D() {
+export default function Frame3D({ selectedMatStyle }) {
   const [targetTilt, setTargetTilt] = useState(1.5); // front view
+  // const [selectedMatStyle, setSelectedMatStyle] = useState("No Mat");
+
   const [showContextView, setShowContextView] = useState(false);
   const [showAR, setShowAR] = useState(false);
   const [contextSize, setContextSize] = useState({ width: 300, height: 300 });
@@ -12,6 +14,7 @@ export default function Frame3D() {
 
   const glbRef = useRef(null);
 
+  
   // Responsive overlay size
   useEffect(() => {
     const updateSize = () => {
@@ -22,8 +25,10 @@ export default function Frame3D() {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
+
+
   return (
-    <div className="frame3d-container" style={{ width: "100%", maxWidth: "100%", display: "flex", flexDirection: "column", alignItems: "center", marginTop: "20px", overflow: "hidden" }}>
+    <div className="frame3d-container" style={{ width: "100%", maxWidth: "100%", display: "flex", flexDirection: "column", alignItems: "center", overflow: "hidden" }}>
       {/* Top Buttons */}
       <div className="flex flex-wrap justify-center gap-2 mb-5 px-2 sm:px-4">
         {/* Front View */}
@@ -44,12 +49,12 @@ export default function Frame3D() {
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5">
             <g fill="none" fillRule="nonzero" transform="translate(3 3)">
               <g fill="#5a5a5aff" transform="translate(0 9)">
-                <path d="M4 4h10v2H4zM6 0h6c1.1045695 0 2 .8954305 2 2v1H4V2c0-1.1045695.8954305-2 2-2z"/>
-                <circle cx="1.5" cy="3.5" r="1.5"/>
-                <circle cx="16.5" cy="3.5" r="1.5"/>
-                <path d="M2 4h2v3c0 .5522-.4477 1-1 1s-1-.4477-1-1V4zM14 4h2v3c0 .5522-.4477 1-1 1s-1-.4477-1-1V4z"/>
+                <path d="M4 4h10v2H4zM6 0h6c1.1045695 0 2 .8954305 2 2v1H4V2c0-1.1045695.8954305-2 2-2z" />
+                <circle cx="1.5" cy="3.5" r="1.5" />
+                <circle cx="16.5" cy="3.5" r="1.5" />
+                <path d="M2 4h2v3c0 .5522-.4477 1-1 1s-1-.4477-1-1V4zM14 4h2v3c0 .5522-.4477 1-1 1s-1-.4477-1-1V4z" />
               </g>
-              <rect width="10" height="5" x="4" y="1" stroke="#5a5a5aff" strokeWidth="2" rx="1"/>
+              <rect width="10" height="5" x="4" y="1" stroke="#5a5a5aff" strokeWidth="2" rx="1" />
             </g>
           </svg>
         </button>
@@ -72,7 +77,7 @@ export default function Frame3D() {
               </div>
             </div>
           ) : (
-            <GlbFrame ref={glbRef} targetTilt={targetTilt} />
+            <GlbFrame ref={glbRef} targetTilt={targetTilt} selectedMatStyle={selectedMatStyle} />
           )
         )}
 
@@ -88,7 +93,7 @@ export default function Frame3D() {
 
       {/* Download Button */}
       {!showAR && (
-        <div className="flex justify-center -mt-5 sm:px-4">
+        <div className="flex justify-center  sm:px-4">
           <button onClick={() => glbRef.current?.downloadFrame()} className="flex items-center gap-2 border border-gray-400 text-gray-700 bg-transparent px-3 py-2 rounded-md hover:bg-gray-100 hover:border-gray-600">
             <ArrowDownTrayIcon className={iconClass} />
           </button>

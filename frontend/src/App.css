@@ -12,6 +12,7 @@
   --media-bg: #c7cacc;
 }
 
+
 /* Scene setup */
 #scene {
   width: var(--frame-width);

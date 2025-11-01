@@ -7,7 +7,9 @@ import getCroppedImg from "../utils/cropImage"; // ✅ correct import
 
 
 // Frame 3D model component
-function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture }) {
+function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture, selectedMatStyle = "No Mat",   frameThickness = 1, // ✅ Add default
+
+}) {
   const { scene } = useGLTF(frameModel);
   const modelRef = useRef();
   const hoverRef = useRef(false);
@@ -18,12 +20,6 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
   // Center + recolor
   useEffect(() => {
     if (!modelRef.current) return;
-
-    // Guard to ensure logging happens only once
-    const didLogRef = { current: false };
-    if (didLogRef.current) return;
-    didLogRef.current = true;
-
     // Center the model
     const box = new THREE.Box3().setFromObject(modelRef.current);
     const center = new THREE.Vector3();
@@ -33,7 +29,6 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
     const size = new THREE.Vector3();
     box.getSize(size);
     modelRef.current.position.y -= size.y * 0.02;
-
     modelRef.current.rotation.y = defaultTilt;
 
     // ✅ Log all mesh names and recolor mat
@@ -50,8 +45,8 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
             color: "white",
             transparent: true,
             opacity: 0,
-            roughness: 0.6,
-            metalness: 0.2,
+            // roughness: 0.6,
+            // metalness: 0.2,
           });
           child.material.needsUpdate = true;
         }
@@ -60,21 +55,36 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
         if (child.name === "Frame_Backside") {
           child.visible = false;
         }
-      }
-        if (child.isMesh && child.name === "FRAME_TOP") {
-    if (frameTexture) {
-      const texture = new THREE.TextureLoader().load(frameTexture);
-      texture.flipY = false;
-      texture.colorSpace = THREE.SRGBColorSpace;
+        if (child.isMesh && child.material) {
+          // Only change the inner mesh (e.g., named 'Inner' or 'Photo')
+          if (child.name.toLowerCase().includes("inner") || child.name.toLowerCase().includes("photo")) {
+            const prev = child.material;
+            child.material = new THREE.MeshBasicMaterial({
+              map: prev?.map || null,
+              color: prev?.color || new THREE.Color(0xffffff),
+              transparent: prev?.transparent || false,
+              opacity: prev?.opacity ?? 1,
+            });
+            child.material.needsUpdate = true;
+          }
+        }
 
-      child.material = new THREE.MeshStandardMaterial({
-        map: texture,
-        metalness: 0.3,
-        roughness: 0.6,
-      });
-      child.material.needsUpdate = true;
-    }
-  }
+      }
+
+      if (child.isMesh && child.name === "FRAME_TOP") {
+        if (frameTexture) {
+          const texture = new THREE.TextureLoader().load(frameTexture);
+          texture.flipY = false;
+          texture.colorSpace = THREE.SRGBColorSpace;
+
+          child.material = new THREE.MeshStandardMaterial({
+            map: texture,
+            metalness: 0.3,
+            roughness: 0.6,
+          });
+          child.material.needsUpdate = true;
+        }
+      }
       if (child.isMesh) {
         console.log(child.name);
         // Recolor mat meshes
@@ -85,6 +95,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
           child.material.needsUpdate = true;
         }
       }
+
       if (!modelRef.current) return;
 
       modelRef.current.traverse((child) => {
@@ -104,7 +115,111 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
 
     // Expose this function globally so input boxes can call it
     window.__applyFrameSize = applyFrameSize;
+
   }, [defaultTilt]);
+  // ✅ Mat visibility logic — completely safe, stable dependency array
+  useEffect(() => {
+    if (!modelRef.current) return;
+
+    const model = modelRef.current;
+
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+
+      const isFirstMat =
+        child.name === "First_Mat_top" ||
+        child.name === "First_Mat_bottom" ||
+        child.name === "First_Mat_left" ||
+        child.name === "First_Mat_right";
+
+      const isSecondMat =
+        child.name === "Second_Mat_top" ||
+        child.name === "Second_Mat_Bottom" || // exact GLB name
+        child.name === "Second_Mat_left" ||
+        child.name === "Second_Mat_right";
+
+      // Hide all by default
+      if (isFirstMat || isSecondMat) child.visible = false;
+
+      switch (selectedMatStyle) {
+        case "Single Mat":
+          if (isFirstMat) {
+            child.visible = true;
+            child.material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            child.material.needsUpdate = true;
+          }
+          break;
+
+        case "Single Mat + Double Mat":
+          // ✅ Outer white mat
+          if (isFirstMat) {
+            child.visible = true;
+            child.material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            child.material.needsUpdate = true;
+          }
+
+          // ✅ Inner dark mat
+          if (isSecondMat) {
+            child.visible = true;
+            child.material = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+            child.material.needsUpdate = true;
+
+            // ✅ Bring inner mat slightly forward to avoid overlap issues
+            child.position.z = 0.035;
+
+            // ✅ Slightly enlarge the second mat to close visible line between borders
+            child.scale.x *= 1.002; // widen a touch
+            child.scale.y *= 1.002; // height a touch
+          }
+          break;
+
+        // 🏝️ ISLAND (white base + lifted mat with shadow feel)
+        case "Island":
+          if (isFirstMat || isSecondMat) {
+            child.visible = true;
+
+            if (isSecondMat) {
+              // Flat white mat that doesn’t change on tilt
+              child.material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+              });
+              child.material.needsUpdate = true;
+            }
+          }
+          break;
+
+        default:
+          break;
+      }
+    });
+  }, [selectedMatStyle]);
+
+// ✅ Reactively update frame thickness
+useEffect(() => {
+  const model = window.__frameModel;
+  if (!model) return;
+
+  const frame = model.getObjectByName("FRAME_TOP");
+  if (!frame) return;
+
+  // Store original scale/pos only once
+  if (!frame.userData.originalScale) {
+    frame.userData.originalScale = frame.scale.clone();
+    frame.userData.originalPos = frame.position.clone();
+  }
+
+  const { x, y, z } = frame.userData.originalScale;
+  const { z: origZ } = frame.userData.originalPos;
+
+  // ✅ Apply thickness on Z-axis
+  frame.scale.set(x, y, z * frameThickness);
+
+  // ✅ Push forward to avoid sinking
+  const forwardOffset = 0.25 * (frameThickness - 1);
+  frame.position.z = origZ + forwardOffset;
+
+  frame.updateMatrixWorld(true);
+}, [frameThickness]);
 
 
   // Smooth rotation: hover + targetTilt
@@ -179,7 +294,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
 }
 
 // Forward ref to allow download
-const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture  }, ref) => {
+const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selectedMatStyle }, ref) => {
   const canvasRef = useRef();
   const sceneRef = useRef();
   const cameraRef = useRef();
@@ -222,30 +337,30 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture  }, ref)
       <Canvas
         ref={canvasRef}
         camera={{ fov: 35, near: 0.1, far: 1000, position: [0, 0, 15] }}
-        onCreated={({ scene, camera }) => {
+        onCreated={({ gl, scene, camera }) => {
           sceneRef.current = scene;
           cameraRef.current = camera;
+
+          // ✅ No tone mapping, shadows, or light effects
+          gl.toneMapping = THREE.NoToneMapping;
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.shadowMap.enabled = false;
         }}
       >
-        <ambientLight intensity={0.7} />
-        <directionalLight
-          name="dynamicLight"
-          position={[5, 5, 5]}
-          intensity={1.2}
-          color={"#ffffff"}
-        />
+
         <Suspense fallback={null}>
           <FrameModel
             defaultTilt={1.5}
             hoverTilt={0.6}
             targetTilt={targetTilt}
-            locked={locked} // ✅ lock rotation
-              frameTexture={frameTexture} // ✅ matches prop name
-
+            locked={locked}
+            frameTexture={frameTexture}
+            selectedMatStyle={selectedMatStyle} // ✅ ADD THIS
           />
+
           <Environment preset="studio" />
         </Suspense>
-        <OrbitControls enableRotate={false} enablePan={false} target={[0, 0, 0]} />
+        <OrbitControls enableRotate={false} enablePan={false} target={[0, 0, 0]} enableZoom={false} />
       </Canvas>
     </div>
   );
