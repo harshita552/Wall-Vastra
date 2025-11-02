@@ -6,56 +6,50 @@ import "nouislider/dist/nouislider.css";
 export default function FrameCustomizer() {
     const [matBorder, setMatBorder] = useState(0); // default mat = 0
     const [matColor, setMatColor] = useState("rgb(33,33,33)"); // black as default
-
     // Initialize noUiSlider
-    useEffect(() => {
-        const slider = document.getElementById("new_mat_slider");
-        if (slider && !slider.noUiSlider) {
-            noUiSlider.create(slider, {
-                start: matBorder,
-                connect: "lower",
-                range: { min: 0, max: 6 },
-                step: 1,
-                tooltips: true,
-                format: {
-                    to: (value) => `${Math.round(value)}" Mat`,
-                    from: (value) => Number(value.replace('" Mat', "")),
-                },
-            });
+useEffect(() => {
+    const slider = document.getElementById("new_mat_slider");
 
-            slider.noUiSlider.on("update", (values, handle) => {
-                const newVal = Number(values[handle].replace('" Mat', ""));
-                setMatBorder(newVal);
-            });
-        }
-    }, []);
+    if (slider?.noUiSlider) {
+        slider.noUiSlider.destroy();
+    }
+
+    if (slider) {
+        noUiSlider.create(slider, {
+            start: [matBorder],
+            connect: "lower",
+            range: { min: 0, max: 6 },
+            step: 1,
+            tooltips: {
+                to: (value) => `${Math.round(value)}" Mat`,
+                from: (value) => Number(value.replace('" Mat', "")),
+            },
+        });
+
+        slider.noUiSlider.on("update", (values, handle) => {
+            const newVal = Number(values[handle].replace('" Mat', ""));
+            setMatBorder(newVal);
+
+            // ✅ Update 3D mat + photo scaling
+            if (window.__updateMatScale) {
+                window.__updateMatScale(newVal);
+            }
+        });
+    }
+
+    return () => {
+        if (slider?.noUiSlider) slider.noUiSlider.destroy();
+    };
+}, []);
+
 
     // Update mat, media, and scene dynamically
-    useEffect(() => {
-        const frame = document.querySelector(".frame");
-        const frameMat = frame?.querySelector(".frame-mat");
-        const frameMedia = frame?.querySelector(".frame-media");
-        const scene = document.getElementById("scene");
-
-        const matPx = matBorder * 20; // scale mat for visual impact
-
-        if (scene) {
-            const baseWidth = 450;
-            const baseHeight = 480;
-            scene.style.width = `${baseWidth + matPx}px`;
-            scene.style.height = `${baseHeight + matPx}px`;
-        }
-
-        if (frameMat) {
-            frameMat.style.display = matBorder === 0 ? "none" : "block";
-            frame.style.setProperty("--mat-border", `${matPx}px`);
-        }
-
-        if (frameMedia) {
-            frameMedia.style.width = `calc(100% - ${matPx * 2}px)`;
-            frameMedia.style.height = `calc(100% - ${matPx * 2}px)`;
-        }
-    }, [matBorder]);
+   // ✅ Update mat scale inside GLB model directly
+  useEffect(() => {
+    if (window.__updateMatScale) {
+      window.__updateMatScale(matBorder);
+    }
+  }, [matBorder]);
 
     const colors = [
         { name: "Mat color: Black", value: "rgb(33,33,33)" },
@@ -81,8 +75,6 @@ export default function FrameCustomizer() {
             });
         }
     };
-
-
     return (
         <div>
             {/* Slider with 50% width, left-aligned */}
@@ -94,10 +86,8 @@ export default function FrameCustomizer() {
                     marginLeft: 0,
                 }}
             ></div>
-
             {/* Mat color buttons */}
             <label className="block text-gray-700 font-semibold mb-1">Mat Color</label>
-
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {colors.map((c) => (
                     <button

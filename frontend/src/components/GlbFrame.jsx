@@ -5,9 +5,8 @@ import * as THREE from "three";
 import frameModel from "../assets/frame_1_naming.glb";
 import getCroppedImg from "../utils/cropImage"; // ✅ correct import
 
-
 // Frame 3D model component
-function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture, selectedMatStyle = "No Mat",   frameThickness = 1, // ✅ Add default
+function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture, selectedMatStyle = "No Mat", frameThickness = 1, // ✅ Add default
 
 }) {
   const { scene } = useGLTF(frameModel);
@@ -15,7 +14,6 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
   const hoverRef = useRef(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-
 
   // Center + recolor
   useEffect(() => {
@@ -25,12 +23,10 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
     const center = new THREE.Vector3();
     box.getCenter(center);
     modelRef.current.position.sub(center);
-
     const size = new THREE.Vector3();
     box.getSize(size);
     modelRef.current.position.y -= size.y * 0.02;
     modelRef.current.rotation.y = defaultTilt;
-
     // ✅ Log all mesh names and recolor mat
     console.log("---- Mesh Names in Frame ----");
 
@@ -50,7 +46,6 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
           });
           child.material.needsUpdate = true;
         }
-
         // Hide Frame_Backside by default
         if (child.name === "Frame_Backside") {
           child.visible = false;
@@ -68,9 +63,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
             child.material.needsUpdate = true;
           }
         }
-
       }
-
       if (child.isMesh && child.name === "FRAME_TOP") {
         if (frameTexture) {
           const texture = new THREE.TextureLoader().load(frameTexture);
@@ -95,14 +88,13 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
           child.material.needsUpdate = true;
         }
       }
-
       if (!modelRef.current) return;
 
-      modelRef.current.traverse((child) => {
-        if (child.isMesh && child.name === "Photo") {
-          window.__photoMesh = child; // expose globally
-        }
-      });
+    });
+    modelRef.current.traverse((child) => {
+      if (child.isMesh && child.name === "Photo") {
+        window.__photoMesh = child; // expose globally
+      }
     });
     console.log("---- End of Mesh Names ----");
 
@@ -165,7 +157,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
             child.material.needsUpdate = true;
 
             // ✅ Bring inner mat slightly forward to avoid overlap issues
-            child.position.z = 0.035;
+            // child.position.z = 0.035;
 
             // ✅ Slightly enlarge the second mat to close visible line between borders
             child.scale.x *= 1.002; // widen a touch
@@ -194,33 +186,99 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
     });
   }, [selectedMatStyle]);
 
-// ✅ Reactively update frame thickness
-useEffect(() => {
-  const model = window.__frameModel;
-  if (!model) return;
+  useEffect(() => {
+    const firstMatMeshes = [];
+    const secondMatMeshes = [];
+    let photoMesh = null;
 
-  const frame = model.getObjectByName("FRAME_TOP");
-  if (!frame) return;
+    scene.traverse((mesh) => {
+      if (mesh.isMesh) {
+        if (mesh.name.includes("First_Mat")) firstMatMeshes.push(mesh);
+        if (mesh.name.includes("Second_Mat")) secondMatMeshes.push(mesh);
+        if (mesh.name === "Photo") photoMesh = mesh;
+      }
+    });
 
-  // Store original scale/pos only once
-  if (!frame.userData.originalScale) {
-    frame.userData.originalScale = frame.scale.clone();
-    frame.userData.originalPos = frame.position.clone();
-  }
+    // Store original scales
+    const originalScales = {
+      photo: photoMesh ? photoMesh.scale.clone() : new THREE.Vector3(1, 1, 1),
+      firstMat: firstMatMeshes[0]
+        ? firstMatMeshes[0].scale.clone()
+        : new THREE.Vector3(1, 1, 1),
+      secondMat: secondMatMeshes[0]
+        ? secondMatMeshes[0].scale.clone()
+        : new THREE.Vector3(1, 1, 1),
+    };
 
-  const { x, y, z } = frame.userData.originalScale;
-  const { z: origZ } = frame.userData.originalPos;
+    // ✅ Function: Mat thickens inward, Photo shrinks, hollow area filled
+    window.__updateMatScale = (value, matColor = "white") => {
+      const matScale = 1 - value * 0.05; // mat shrinks inward (reduces area)
+      const photoScale = 1 - value * 0.07; // photo shrinks even more
 
-  // ✅ Apply thickness on Z-axis
-  frame.scale.set(x, y, z * frameThickness);
+      // --- Shrink first mat inward ---
+      firstMatMeshes.forEach((mesh) => {
+        mesh.scale.setScalar(originalScales.firstMat.x * matScale);
 
-  // ✅ Push forward to avoid sinking
-  const forwardOffset = 0.25 * (frameThickness - 1);
-  frame.position.z = origZ + forwardOffset;
+        // ✅ Apply chosen mat color
+        if (mesh.material) {
+          mesh.material.color = new THREE.Color(matColor);
+          mesh.material.needsUpdate = true;
+        }
+      });
 
-  frame.updateMatrixWorld(true);
-}, [frameThickness]);
+      // --- Shrink photo inward proportionally ---
+      if (photoMesh) {
+        const base = originalScales.photo;
+        photoMesh.scale.set(
+          base.x * photoScale,
+          base.y * photoScale,
+          base.z * 1
+        );
+      }
 
+      // ✅ Detect and color the inner hollow surface with same mat color
+      const innerGrayMesh =
+        window.__frameModel?.getObjectByName("Inner_Back") ||
+        window.__frameModel?.getObjectByName("Photo_Back") ||
+        window.__frameModel?.getObjectByName("Back_Plane");
+
+      if (innerGrayMesh && innerGrayMesh.material) {
+        innerGrayMesh.material.color = new THREE.Color(matColor);
+        innerGrayMesh.material.needsUpdate = true;
+      }
+    };
+
+    // Initialize
+    window.__updateMatScale(0, "white");
+  }, [scene]);
+
+
+  // ✅ Reactively update frame thickness
+  useEffect(() => {
+    const model = window.__frameModel;
+    if (!model) return;
+
+    const frame = model.getObjectByName("FRAME_TOP");
+    if (!frame) return;
+
+    // Store original scale/pos only once
+    if (!frame.userData.originalScale) {
+      frame.userData.originalScale = frame.scale.clone();
+      frame.userData.originalPos = frame.position.clone();
+    }
+
+    const { x, y, z } = frame.userData.originalScale;
+    const { z: origZ } = frame.userData.originalPos;
+
+    // ✅ Apply thickness on Z-axis
+    frame.scale.set(x, y, z * frameThickness);
+
+    // ✅ Push forward to avoid sinking
+    const forwardOffset = 0.25 * (frameThickness - 1);
+    frame.position.z = origZ + forwardOffset;
+
+    frame.updateMatrixWorld(true);
+  }, [frameThickness]);
 
   // Smooth rotation: hover + targetTilt
   useFrame(() => {
@@ -282,7 +340,6 @@ useEffect(() => {
     }
   };
 
-
   return (
     <primitive
       ref={modelRef}
@@ -302,19 +359,15 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
   useImperativeHandle(ref, () => ({
     downloadFrame: () => {
       if (!sceneRef.current || !cameraRef.current) return;
-
       const offCanvas = document.createElement("canvas");
       offCanvas.width = canvasRef.current.width;
       offCanvas.height = canvasRef.current.height;
-
       const renderer = new THREE.WebGLRenderer({
         canvas: offCanvas,
         preserveDrawingBuffer: true,
       });
       renderer.setSize(offCanvas.width, offCanvas.height);
-
       renderer.render(sceneRef.current, cameraRef.current);
-
       const dataURL = offCanvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = dataURL;
@@ -324,7 +377,6 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
       renderer.dispose();
     },
   }));
-
   return (
     <div
       style={{
@@ -347,7 +399,6 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
           gl.shadowMap.enabled = false;
         }}
       >
-
         <Suspense fallback={null}>
           <FrameModel
             defaultTilt={1.5}
@@ -357,7 +408,6 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
             frameTexture={frameTexture}
             selectedMatStyle={selectedMatStyle} // ✅ ADD THIS
           />
-
           <Environment preset="studio" />
         </Suspense>
         <OrbitControls enableRotate={false} enablePan={false} target={[0, 0, 0]} enableZoom={false} />
@@ -365,5 +415,4 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
     </div>
   );
 });
-
 export default GlbFrame;

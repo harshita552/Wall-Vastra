@@ -123,7 +123,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [frameThickness, setFrameThickness] = useState(20); // default 40px
     const [frameColor, setFrameColor] = useState("#faf4d0ff"); // default color
 
-    const [matBorder, setMatBorder] = useState(30);
+    const [matBorder, setMatBorder] = useState(0);
 
     const artOptions = [
         {
@@ -317,20 +317,12 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             <select
                                 value={selectedService}
                                 onChange={(e) => setSelectedService(e.target.value)}
-                                onFocus={() => setShowTooltip(true)}
-                                onBlur={() => setShowTooltip(false)}
                                 className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-[#4598e2] focus:border-[#4598e2]"
                             >
                                 <option value="default">Please select</option>
-                                <option value="digitalPhoto">
-                                    Digital Photo - For digital photos/art that need to be printed and framed.
-                                </option>
-                                <option value="myArtwork">
-                                    My Artwork (Frame only) - For existing artwork that needs a frame.
-                                </option>
-                                <option value="generateAI">
-                                    Generate via AI - Create an artwork via AI for framing.
-                                </option>
+                                <option value="digitalPhoto">Digital Photo</option>
+                                <option value="artworkOnly">My Artwork (Frame only)</option>
+                                <option value="generateAI">Generate via AI</option>
                             </select>
 
                             {/* Tooltip / Description */}
@@ -365,7 +357,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                     {/* Art Type Card */}
                     {/* Show Art Type only for Print and Frame or Studio Mail-in */}
-                    {selectedService === "default" && (
+                    {selectedService && selectedService !== "" && (
                         <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
                             <table className="table-auto w-full text-sm">
                                 <tbody>
@@ -543,8 +535,9 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                         onClick={() => {
                                                             setAppliedDimensions({ width: artWidth, height: artHeight });
                                                             setOpenDimensions(false);
-                                                            updatePhotoScale(artWidth, artHeight);
+                                                            updatePhotoScale(artWidth, artHeight); // ✅ keep this
                                                         }}
+
                                                         className="text-white bg-[#752650] hover:bg-gray-200 hover:text-black px-4 py-2 transition"
                                                     >
                                                         APPLY
@@ -557,6 +550,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                             setOpenDimensions(false);
                                                             updatePhotoScale(appliedDimensions.width, appliedDimensions.height);
                                                         }}
+
                                                         className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition"
                                                     >
                                                         CANCEL
@@ -831,12 +825,14 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                     </div>
 
                     {/* 7. MAT WIDTH SLIDER + ADVANCED OPTIONS */}
-                    <div className="flex items-start gap-3 mt-3">
-                        <div className="w-1/2">
-                            <FrameCustomizer matBorder={matBorder} setMatBorder={setMatBorder} />
-                        </div>
+                    {selectedMatStyle !== "No Mat" && (
+                        <div className="flex items-start gap-3 mt-3">
+                            <div className="w-1/2">
+                                <FrameCustomizer matBorder={matBorder} setMatBorder={setMatBorder} />
+                            </div>
 
-                    </div>
+                        </div>
+                    )}
 
                     {/* 8. MAT COLOR */}
                     {/* <div className="w-1/2 mt-2">
