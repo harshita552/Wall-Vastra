@@ -2,12 +2,12 @@ import React, { Suspense, useRef, useEffect, forwardRef, useImperativeHandle, us
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Environment } from "@react-three/drei";
 import * as THREE from "three";
-import frameModel from "../assets/frame_1_naming.glb";
 import getCroppedImg from "../utils/cropImage"; // ✅ correct import
+import frameModel from "../assets/frame_1_naming.glb";
 
 // Frame 3D model component
 function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture, selectedMatStyle = "No Mat", frameThickness = 1, // ✅ Add default
-
+  floatType ,   matWidth = { top: 0, bottom: 0, left: 0, right: 0 }
 }) {
   const { scene } = useGLTF(frameModel);
   const modelRef = useRef();
@@ -187,6 +187,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
   }, [selectedMatStyle]);
 
   useEffect(() => {
+    // Identify meshes by name
     const firstMatMeshes = [];
     const secondMatMeshes = [];
     let photoMesh = null;
@@ -199,7 +200,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
       }
     });
 
-    // Store original scales
+    // ✅ Store original scales for reset reference
     const originalScales = {
       photo: photoMesh ? photoMesh.scale.clone() : new THREE.Vector3(1, 1, 1),
       firstMat: firstMatMeshes[0]
@@ -210,93 +211,86 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
         : new THREE.Vector3(1, 1, 1),
     };
 
-    // ✅ Function: Mat thickens inward, Photo shrinks, hollow area filled
-    window.__updateMatScale = (value, matColor = "white") => {
-      const matScale = 1 - value * 0.05; // mat shrinks inward (reduces area)
-      const photoScale = 1 - value * 0.07; // photo shrinks even more
+    window.__updateMatScale = (value) => {
+      const matScale = 1 / (1 + value * 0.03); // mats shrink inward
+      const photoScale = 1 + value * 0.06; // photo expands outward
 
-      // --- Shrink first mat inward ---
+      // --- Scale only first mat inward ---
       firstMatMeshes.forEach((mesh) => {
         mesh.scale.setScalar(originalScales.firstMat.x * matScale);
 
-        // ✅ Apply chosen mat color
+        // ✅ Make mat area + inner space white
         if (mesh.material) {
-          mesh.material.color = new THREE.Color(matColor);
+          mesh.material.color = new THREE.Color("white");
           mesh.material.needsUpdate = true;
         }
       });
 
-      // --- Shrink photo inward proportionally ---
-      if (photoMesh) {
-        const base = originalScales.photo;
-        photoMesh.scale.set(
-          base.x * photoScale,
-          base.y * photoScale,
-          base.z * 1
-        );
-      }
-
-      // ✅ Detect and color the inner hollow surface with same mat color
-      const innerGrayMesh =
-        window.__frameModel?.getObjectByName("Inner_Back") ||
+      // ✅ Make inner gray area white too (detect it by name)
+      const innerGrayMesh = window.__frameModel?.getObjectByName("Inner_Back") ||
         window.__frameModel?.getObjectByName("Photo_Back") ||
         window.__frameModel?.getObjectByName("Back_Plane");
 
       if (innerGrayMesh && innerGrayMesh.material) {
-        innerGrayMesh.material.color = new THREE.Color(matColor);
+        innerGrayMesh.material.color = new THREE.Color("white");
         innerGrayMesh.material.needsUpdate = true;
       }
+
+      // --- Scale photo outward (uniformly) ---
+      if (photoMesh) {
+        const base = originalScales.photo;
+        const newScale = photoScale;
+
+        photoMesh.scale.set(
+          base.x * newScale,
+          base.y * newScale,
+          base.z * 1
+        );
+      }
     };
-
-    // Initialize
-    window.__updateMatScale(0, "white");
+    // Set initial mat = 0
+    window.__updateMatScale(0);
   }, [scene]);
-
 
   // ✅ Reactively update frame thickness
   useEffect(() => {
     const model = window.__frameModel;
-    if (!model) return;
-
+    if (!model) {
+      console.log("Frame model not loaded yet");
+      return;
+    }
     const frame = model.getObjectByName("FRAME_TOP");
     if (!frame) return;
-
-    // Store original scale/pos only once
     if (!frame.userData.originalScale) {
       frame.userData.originalScale = frame.scale.clone();
       frame.userData.originalPos = frame.position.clone();
     }
-
     const { x, y, z } = frame.userData.originalScale;
-    const { z: origZ } = frame.userData.originalPos;
-
-    // ✅ Apply thickness on Z-axis
-    frame.scale.set(x, y, z * frameThickness);
-
-    // ✅ Push forward to avoid sinking
-    const forwardOffset = 0.25 * (frameThickness - 1);
-    frame.position.z = origZ + forwardOffset;
-
+    const { y: origY } = frame.userData.originalPos;
+    // ✅ Boost the perceived thickness a bit
+    const visualMultiplier = 1.3; // increase this for thicker look
+    const adjustedThickness = 1 + (frameThickness - 1) * visualMultiplier;
+    frame.scale.set(x, y * adjustedThickness, z);
+    // ✅ Make it expand more outward (so less goes inward)
+    const forwardOffset = 0.5 * (adjustedThickness - 1);
+    frame.position.y = origY + forwardOffset;
+    console.log("✅ Frame thickness changed (visual):", adjustedThickness);
     frame.updateMatrixWorld(true);
   }, [frameThickness]);
 
   // Smooth rotation: hover + targetTilt
   useFrame(() => {
     if (!modelRef.current) return;
-
     // Lock front view if needed
     if (locked) {
       modelRef.current.rotation.y = defaultTilt;
       return;
     }
-
     // Smooth rotation between default, hover, or manual tilt
     const rot = hoverRef.current ? hoverTilt : (targetTilt ?? defaultTilt);
     modelRef.current.rotation.y += (rot - modelRef.current.rotation.y) * 0.05;
-
     // 🎨 Dynamic lighting effect based on current rotation
     const currentTilt = modelRef.current.rotation.y;
-
     // Get directional light by name (ensure it's added in <Canvas>)
     const light = modelRef.current.parent?.getObjectByName("dynamicLight");
     if (light) {
@@ -305,7 +299,6 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
       light.position.x = Math.sin(currentTilt) * 10;
       light.position.z = Math.cos(currentTilt) * 10;
     }
-
     // Adjust frame material reflectiveness based on tilt
     modelRef.current.traverse((child) => {
       if (child.isMesh && child.material && child.material.metalness !== undefined) {
@@ -314,6 +307,149 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
       }
     });
   });
+  useEffect(() => {
+    if (!scene) {
+      console.log("⏳ Waiting for scene...");
+      return;
+    }
+
+    // ✅ Register scene, camera, renderer globally
+    if (!window.__scene) {
+      window.__scene = scene;
+      const renderer = scene?.renderer || window.__renderer;
+      if (!window.__renderer && renderer) window.__renderer = renderer;
+      if (!window.__camera && scene?.camera) window.__camera = scene.camera;
+      console.log("✅ Scene registered globally.");
+    }
+
+    // --- Find meshes ---
+    let photoMesh = null;
+    const firstMatMeshes = [];
+    const secondMatMeshes = [];
+
+    scene.traverse((mesh) => {
+      if (!mesh.isMesh) return;
+      if (mesh.name === "Photo") photoMesh = mesh;
+      if (mesh.name.includes("First_Mat")) firstMatMeshes.push(mesh);
+      if (mesh.name.includes("Second_Mat")) secondMatMeshes.push(mesh);
+    });
+
+    if (!photoMesh) {
+      console.log("⚠️ Photo mesh not found yet");
+      return;
+    }
+
+    // --- Shadow Light Setup ---
+    let shadowLight = scene.getObjectByName("photoShadowLight");
+    if (!shadowLight) {
+      shadowLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      shadowLight.position.set(2, 5, 5);
+      shadowLight.castShadow = true;
+      shadowLight.name = "photoShadowLight";
+      scene.add(shadowLight);
+
+      const helper = new THREE.DirectionalLightHelper(shadowLight, 0.2);
+      helper.visible = false; // enable temporarily if needed
+      scene.add(helper);
+
+      console.log("💡 Added shadow light to scene");
+    }
+
+    // --- Enable shadow casting globally ---
+    photoMesh.castShadow = true;
+    photoMesh.receiveShadow = true;
+    firstMatMeshes.forEach((m) => {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    });
+    secondMatMeshes.forEach((m) => (m.visible = false));
+
+    // --- Apply float types ---
+    if (floatType === "none") {
+      photoMesh.position.z = 0;
+      shadowLight.intensity = 0.0;
+      firstMatMeshes.forEach((m) => (m.visible = false)); // hide mat on default
+      console.log("🟢 FloatType: None → no mat, no shadow");
+    } else if (floatType === "sandwich") {
+      photoMesh.position.z = 0.01;
+      shadowLight.intensity = 0.6;
+      firstMatMeshes.forEach((m) => (m.visible = true)); // show single mat
+      console.log("🟡 FloatType: Sandwich → soft shadow, single mat visible");
+    } else if (floatType === "elevated") {
+      photoMesh.position.z = 0.05;
+      shadowLight.intensity = 1.0;
+      firstMatMeshes.forEach((m) => (m.visible = true)); // show single mat
+      console.log("🔴 FloatType: Elevated → stronger shadow, single mat visible");
+    }
+
+    // --- Renderer shadow settings ---
+    const renderer = window.__renderer || scene.renderer;
+    if (renderer) {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      console.log("🧩 Shadows enabled on renderer");
+    }
+  }, [floatType, scene]);
+
+  useEffect(() => {
+    if (!scene) return;
+
+    const matMeshes = {
+      top: null,
+      bottom: null,
+      left: null,
+      right: null,
+    };
+
+    scene.traverse((mesh) => {
+      if (!mesh.isMesh) return;
+      if (mesh.name === "First_Mat_top") matMeshes.top = mesh;
+      if (mesh.name === "First_Mat_bottom") matMeshes.bottom = mesh;
+      if (mesh.name === "First_Mat_left") matMeshes.left = mesh;
+      if (mesh.name === "First_Mat_right") matMeshes.right = mesh;
+    });
+
+    // Helper function: scale mat toward photo
+    const adjustMat = (mesh, side, value) => {
+      if (!mesh) return;
+      if (!mesh.userData.originalScale) {
+        mesh.userData.originalScale = mesh.scale.clone();
+        mesh.userData.originalPos = mesh.position.clone();
+      }
+
+      const scale = mesh.userData.originalScale.clone();
+      const pos = mesh.userData.originalPos.clone();
+
+      const inward = value * 0.02; // adjust sensitivity
+
+      switch (side) {
+        case "top":
+          mesh.scale.y = scale.y + inward;
+          mesh.position.y = pos.y - inward / 2; // grow down toward photo
+          break;
+        case "bottom":
+          mesh.scale.y = scale.y + inward;
+          mesh.position.y = pos.y + inward / 2; // grow up toward photo
+          break;
+        case "left":
+          mesh.scale.x = scale.x + inward;
+          mesh.position.x = pos.x + inward / 2; // grow right toward photo
+          break;
+        case "right":
+          mesh.scale.x = scale.x + inward;
+          mesh.position.x = pos.x - inward / 2; // grow left toward photo
+          break;
+        default:
+          break;
+      }
+    };
+
+    // Apply adjustments
+    adjustMat(matMeshes.top, "top", matWidth.top);
+    adjustMat(matMeshes.bottom, "bottom", matWidth.bottom);
+    adjustMat(matMeshes.left, "left", matWidth.left);
+    adjustMat(matMeshes.right, "right", matWidth.right);
+  }, [matWidth, scene]);
 
   const handleApplyCrop = async () => {
     const croppedImageUrl = await getCroppedImg(
@@ -349,9 +485,8 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
     />
   );
 }
-
 // Forward ref to allow download
-const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selectedMatStyle }, ref) => {
+const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selectedMatStyle, frameThickness, floatType,   matWidth }, ref) => {
   const canvasRef = useRef();
   const sceneRef = useRef();
   const cameraRef = useRef();
@@ -373,7 +508,6 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
       link.href = dataURL;
       link.download = "frame.png";
       link.click();
-
       renderer.dispose();
     },
   }));
@@ -392,7 +526,6 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
         onCreated={({ gl, scene, camera }) => {
           sceneRef.current = scene;
           cameraRef.current = camera;
-
           // ✅ No tone mapping, shadows, or light effects
           gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -407,6 +540,10 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
             locked={locked}
             frameTexture={frameTexture}
             selectedMatStyle={selectedMatStyle} // ✅ ADD THIS
+            frameThickness={frameThickness} // ✅ add this
+            floatType={floatType} // ✅ ADD THIS LINE
+              matWidth={matWidth}  // ✅ NEW PROP
+
           />
           <Environment preset="studio" />
         </Suspense>

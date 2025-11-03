@@ -3,7 +3,7 @@ import "../App.css";
 import { PhotoIcon, DevicePhoneMobileIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import GlbFrame from "./GlbFrame";
 
-export default function Frame3D({ selectedMatStyle }) {
+export default function Frame3D({ selectedMatStyle, frameThickness, floatType, matWidth }) {
   const [targetTilt, setTargetTilt] = useState(1.5); // front view
   // const [selectedMatStyle, setSelectedMatStyle] = useState("No Mat");
 
@@ -24,8 +24,6 @@ export default function Frame3D({ selectedMatStyle }) {
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
-
-
 
   return (
     <div className="frame3d-container" style={{ width: "100%", maxWidth: "100%", display: "flex", flexDirection: "column", alignItems: "center", overflow: "hidden" }}>
@@ -77,7 +75,7 @@ export default function Frame3D({ selectedMatStyle }) {
               </div>
             </div>
           ) : (
-            <GlbFrame ref={glbRef} targetTilt={targetTilt} selectedMatStyle={selectedMatStyle} />
+            <GlbFrame ref={glbRef} targetTilt={targetTilt} selectedMatStyle={selectedMatStyle} frameThickness={frameThickness} floatType={floatType} matWidth={matWidth}  />
           )
         )}
 

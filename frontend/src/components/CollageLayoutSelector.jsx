@@ -16,7 +16,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [selectedService, setSelectedService] = React.useState("printAndFrame");
     const [showTooltip, setShowTooltip] = useState(false);
     const fileInputRef = useRef(null); // ✅ Create ref for file input
-
     const [selectedMatStyle, setSelectedMatStyle] = useState("No Mat");
     const [tempMatSelection, setTempMatSelection] = useState("No Mat");
     const handleFrameSelect = (textureUrl) => {
@@ -43,7 +42,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         { title: "Single Mat + Double Mat", desc: "Layered mat for depth." },
         { title: "Island", desc: "Floating mat for modern style." },
     ];
-
 
     const frameOptions = [
         {
@@ -120,10 +118,17 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [canvasEdge, setCanvasEdge] = useState("wrap-sides");
 
     // Frame thickness (for frame-only)
-    const [frameThickness, setFrameThickness] = useState(20); // default 40px
+    const [frameThickness, setFrameThickness] = useState(1); // default 40px
     const [frameColor, setFrameColor] = useState("#faf4d0ff"); // default color
-
+    // 🧱 Add these new states at the top
+    const [matValues, setMatValues] = useState({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+    });
     const [matBorder, setMatBorder] = useState(0);
+    const [matStyle, setMatStyle] = useState("none");
 
     const artOptions = [
         {
@@ -136,9 +141,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         },
     ];
     const [selectedFile, setSelectedFile] = useState(null);
-
     const [openDimensions, setOpenDimensions] = useState(false);
-
     const [artWidth, setArtWidth] = useState(8);     // default width in inches
     const [artHeight, setArtHeight] = useState(10);  // default height in inches
     const [appliedDimensions, setAppliedDimensions] = useState({
@@ -167,10 +170,8 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [prompt, setPrompt] = useState("");
     const [generatedImage, setGeneratedImage] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
-
     const handleGenerate = async () => {
         setIsGenerating(true);
-
         // Simulate AI image generation (replace with your API call)
         setTimeout(() => {
             setGeneratedImage("https://picsum.photos/500/300?random=" + Date.now());
@@ -195,7 +196,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     };
 
     const handleMouseUp = () => setIsDragging(false);
-
     const handleMouseMove = (e) => {
         if (!isDragging) return;
         const deltaX = e.clientX - lastPos.x;
@@ -207,17 +207,13 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         }));
     };
 
-
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
     const [lockAspect, setLockAspect] = useState(true);
-
-
     const onCropComplete = (croppedArea, croppedAreaPixels) => {
         setCroppedAreaPixels(croppedAreaPixels);
     };
-
 
     // Glass Type states
     const [openGlassRow, setOpenGlassRow] = useState(false);
@@ -234,7 +230,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         setTempGlassSelection(selectedGlassType);
         setOpenGlassRow(false);
     };
-
 
     const tooltipText = `
 Sandwich - Artwork sits on top of the mat to reveal its edges. The acrylic glaze presses against the art, keeping it smooth and flat.
@@ -276,6 +271,26 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
         }
     };
 
+    const [matWidth, setMatWidth] = useState({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+    });
+    const handleMatChange = (side, value) => {
+        const numericValue = parseFloat(value) || 0;
+
+        // if all mats are 0 → hide mat
+        const allZero = Object.values(matValues).every((v) => v === 0);
+
+        if (allZero && numericValue > 0) {
+            // user increased first mat → switch to single mat
+            setMatValues({ top: 1, bottom: 1, left: 1, right: 1 });
+            setMatStyle("single");
+        } else {
+            setMatValues((prev) => ({ ...prev, [side]: numericValue }));
+        }
+    };
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-screen container mx-0 max-w-full">
             {/* Left Column - Frame Preview */}
@@ -298,8 +313,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                     selectedMatStyle={openMatRow ? tempMatSelection : selectedMatStyle}
                     artWidth={artWidth}
                     artHeight={artHeight}
+                    floatType={floatType}
                 />
-
             </div>
 
             {/* Right Column - Controls */}
@@ -354,6 +369,28 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             if you have any questions
                         </p>
                     </div>
+
+                    {/* Show upload section only when Digital Photo is selected */}
+                    {selectedService === "digitalPhoto" && (
+                        <div className="mt-4 py-4 shadow-sm">
+                            <p className="text-gray-700 font-medium mb-2">
+                                Great! Upload your photo and then choose a size.{" "}
+                                <button
+                                    onClick={() => alert("Explain how it works here or open a modal")}
+                                    className="text-[#4598e2] underline hover:text-[#346fa9] ml-1"
+                                >
+                                    How it works
+                                </button>
+                            </p>
+
+                            <button
+                                className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-200 hover:text-black"
+                                onClick={() => console.log("Select Photo clicked")}
+                            >
+                                Select Photo
+                            </button>
+                        </div>
+                    )}
 
                     {/* Art Type Card */}
                     {/* Show Art Type only for Print and Frame or Studio Mail-in */}
@@ -564,7 +601,6 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                         </table>
                     </div>
 
-
                     {/* 4. UPLOAD / GENERATE AI */}
                     {/* Show Upload / Generate AI only for Print and Frame */}
                     {selectedService === "printAndFrame" && (
@@ -723,9 +759,12 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                         <p className="text-gray-700 text-sm mt-1">
                             ↳ with a{" "}
                             <select
-                                value={frameThickness / 25.4}
-                                onChange={(e) => setFrameThickness(parseFloat(e.target.value) * 25.4)}
-                                className="inline-block w-20 px-1 py-1 text-gray-800 text-sm bg-white border border-gray-400 rounded text-center"
+                                value={frameThickness}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    console.log("📏 Dropdown changed to:", val);
+                                    setFrameThickness(val);
+                                }} className="inline-block w-20 px-1 py-1 text-gray-800 text-sm bg-white border border-gray-400 rounded text-center"
                             >
                                 <option value="0.75">0.75"</option>
                                 <option value="1">1"</option>
@@ -766,8 +805,6 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                 }`}
                                         >
                                             <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-2">
-
-                                                {/* Apply & Cancel Buttons */}
                                                 {/* Apply & Cancel Buttons */}
                                                 <div className="flex justify-between mb-2">
                                                     <button
@@ -833,13 +870,11 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                         </div>
                     )}
-
                     {/* 8. MAT COLOR */}
                     {/* <div className="w-1/2 mt-2">
                         <label className="block text-gray-700 font-semibold mb-1">Customized Mat Color</label>
                         <input type="color" value={matColor} onChange={(e) => setMatColor(e.target.value)} className="w-full h-8 p-1 border rounded cursor-pointer" />
                     </div> */}
-
                     {/* 9. OUTER & INNER DIMENSIONS */}
                     <div className="text-gray-700 text-sm mt-2 space-y-1">
                         {/* <p><span className="font-semibold">Outer Dimensions:</span> {parseFloat(artWidth) + 3} × {parseFloat(artHeight) + 3} inches</p> */}
@@ -849,8 +884,15 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
 
                     {/* 10. ADD TO CART BUTTON */}
                     <div className="flex gap-2 mt-2">
-                        <button className="flex-1 bg-[#752650] text-white px-3 py-2.5 hover:bg-gray-100 hover:text-black transition-colors flex items-center justify-center gap-1.5">
-                            <ShoppingCartIcon className="w-4 h-4" /> Add to Cart
+                        <button className="w-full bg-[#752650] text-white px-4 py-2.5 hover:bg-gray-100 hover:text-black transition-colors flex items-center justify-between ">
+
+                            {/* Left: Icon + Text */}
+                            <span className="flex items-center gap-1.5">
+                                <ShoppingCartIcon className="w-4 h-4" />
+                                Add to Cart
+                            </span>
+                            {/* Right: Price */}
+                            <span className="font-semibold text-sm">$120</span>
                         </button>
                     </div>
 
@@ -864,27 +906,31 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                     {/* 11. ADVANCED OPTIONS SECTION */}
                     {advancedOpen && (
                         <div className="mt-3 space-y-4 p-4 border rounded-lg">
-
                             {/* A. Advanced Mat Width */}
                             <div>
                                 <h3 className="font-semibold text-gray-800 mb-2">Advanced Mat Width</h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    {["Top", "Bottom", "Left", "Right"].map((side) => (
-                                        <div key={side} className="weighted_mat_input_block">
+                                    {["top", "bottom", "left", "right"].map((side) => (
+                                        <div key={side}>
                                             <fieldset className="p-2">
-                                                <legend className="text-sm font-medium text-gray-700">{side}</legend>
+                                                <legend className="text-sm font-medium text-gray-700 capitalize">
+                                                    {side}
+                                                </legend>
                                                 <input
                                                     type="number"
                                                     step="0.5"
                                                     min="0"
+                                                    value={matValues[side]}
+                                                    onChange={(e) => handleMatChange(side, e.target.value)}
                                                     className="text-[#2563eb] w-full border rounded p-2 text-center"
-                                                    placeholder="0"
                                                 />
                                             </fieldset>
                                         </div>
                                     ))}
                                 </div>
+
                             </div>
+
 
                             {/* B. Glass Type */}
                             <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
@@ -907,7 +953,6 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                 </div>
                                             </td>
                                         </tr>
-
                                         {/* Expandable Content */}
                                         <tr>
                                             <td colSpan={2} className="p-0">
@@ -944,12 +989,10 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                                 />
                                                             </div>
                                                         ))}
-
                                                         {/* Info Note */}
                                                         <p className="text-xs text-gray-600 italic mt-3">
                                                             <span className="font-semibold text-[#4598e2]">Note:</span> Simple acrylic is crystal clear but reflective, while non-glare acrylic diffuses light to reduce glare but can soften colors of the art.
                                                         </p>
-
                                                         {/* Action Buttons */}
                                                         <div className="flex justify-between mt-3">
                                                             <button
@@ -971,11 +1014,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                     </tbody>
                                 </table>
                             </div>
-
-
                             {/* C. Float Type */}
                             <div className="relative">
-                                {/* Header with Info Icon */}
                                 <div className="flex items-center gap-2 relative">
                                     <h3 className="font-semibold text-gray-800">Float Type</h3>
                                     <InformationCircleIcon
@@ -983,16 +1023,12 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                         onMouseEnter={() => setShowTooltip(true)}
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
-
-                                    {/* Tooltip */}
                                     {showTooltip && (
                                         <div className="absolute left-0 top-full mt-1 w-80 p-3 bg-white border border-gray-300 rounded shadow-lg text-sm text-gray-800 z-50 whitespace-pre-line">
                                             {tooltipText}
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Radio Options */}
                                 <div className="flex flex-wrap gap-4 mt-2 text-gray-700">
                                     {["None", "Sandwich", "Elevated"].map((option) => (
                                         <label key={option} className="flex items-center gap-1 cursor-pointer">
@@ -1000,7 +1036,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                                 type="radio"
                                                 name="floatType"
                                                 value={option.toLowerCase()}
-                                                defaultChecked={option === "None"}
+                                                checked={floatType === option.toLowerCase()}
+                                                onChange={(e) => setFloatType(e.target.value)}
                                                 className="accent-blue-500"
                                             />
                                             <span>{option}</span>
@@ -1010,10 +1047,8 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             </div>
                         </div>
                     )}
-
                 </div>
             </div>
-
         </div>
     );
 };
