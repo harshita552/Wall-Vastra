@@ -1,10 +1,11 @@
-import React, { useRef, useState } from "react";
-import { ChevronRightIcon, InformationCircleIcon, ShoppingCartIcon } from "@heroicons/react/24/solid";
+import React, { useRef, useState, useEffect } from "react";
+import { ChevronRightIcon, InformationCircleIcon, ShoppingCartIcon, CloudArrowUpIcon, ScissorsIcon, ArrowsPointingOutIcon, SparklesIcon, AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
 import Frame3D from "./Frame3D.jsx";
 import FrameCustomizer from "./FrameWithControls.jsx";
 import Cropper from "react-easy-crop";
-import getCroppedImg from "../utils/cropImage.js"; // we’ll define this helper
+import getCroppedImg from "../utils/cropImage.js";
 import * as THREE from "three";
+import PrintSizeGuide from "./PrintSizeGuide.jsx";
 
 const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -116,6 +117,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const toggleAdvanced = () => setAdvancedOpen(!advancedOpen);
     // Canvas edge selection
     const [canvasEdge, setCanvasEdge] = useState("wrap-sides");
+    const [showOptions, setShowOptions] = useState(false);
 
     // Frame thickness (for frame-only)
     const [frameThickness, setFrameThickness] = useState(1); // default 40px
@@ -129,7 +131,6 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     });
     const [matBorder, setMatBorder] = useState(0);
     const [matStyle, setMatStyle] = useState("none");
-
     const artOptions = [
         {
             title: "Photo Print",
@@ -148,6 +149,27 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
         width: 8,   // default width in inches
         height: 10, // default height in inches
     });
+
+    // const [selectedService, setSelectedService] = useState("default");
+    const [showDescription, setShowDescription] = useState(false);
+    // Map service to description text
+    const descriptions = {
+        digitalPhoto:
+            "Perfect if you have a digital photo or artwork that needs to be printed and custom framed.",
+        artworkOnly:
+            "Ideal if you already have the artwork and just need a custom frame to fit it.",
+        pickupArtwork:
+            "Have us pick up your artwork, and we’ll handcraft the frame exactly as you design it online.",
+    };
+
+    // When option changes, show description for 3 seconds
+    useEffect(() => {
+        if (selectedService !== "default") {
+            setShowDescription(true);
+            const timer = setTimeout(() => setShowDescription(false), 4000); // hides after 4s
+            return () => clearTimeout(timer);
+        }
+    }, [selectedService]);
 
     const toggleRow = () => setOpenRow(!openRow);
     const applySelection = () => {
@@ -206,7 +228,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
             y: prev.y - deltaX * 0.5,
         }));
     };
-
+    const [showMoreOptions, setShowMoreOptions] = useState(false);
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -291,6 +313,24 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
             setMatValues((prev) => ({ ...prev, [side]: numericValue }));
         }
     };
+    // Handle framing option change with fade-in description
+    const handleFramingChange = (e) => {
+        const value = e.target.value;
+        setSelectedService(value);
+        setShowDescription(false);
+        setTimeout(() => setShowDescription(true), 100);
+    };
+    const [showGuideModal, setShowGuideModal] = useState(false);
+    const [showFramingOptions, setShowFramingOptions] = useState(true);
+    // 🔹 Hides the entire “What are you framing?” block when photo is selected
+    const handlePhotoSelect = () => {
+        setShowFramingOptions(false);
+    };
+    const [openPrintType, setOpenPrintType] = useState(false);
+    const [selectedPrintType, setSelectedPrintType] = useState("");
+    const [appliedPrintType, setAppliedPrintType] = useState("");
+    const [showPrintInfo, setShowPrintInfo] = useState(false);
+
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-screen container mx-0 max-w-full">
             {/* Left Column - Frame Preview */}
@@ -323,272 +363,293 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                 <div className="flex-1 space-y-4">
 
                     {/* WHAT ARE YOU FRAMING */}
-                    <div className="mb-4 w-full relative">
-                        <label className="block text-gray-700 font-semibold mb-1">
-                            What are you framing?
-                        </label>
+                    {showFramingOptions && (
+                        <div className="mb-4 w-full relative">
+                            <label className="block text-gray-700 font-semibold mb-1">
+                                What are you framing?
+                            </label>
 
-                        <div className="relative">
-                            <select
-                                value={selectedService}
-                                onChange={(e) => setSelectedService(e.target.value)}
-                                className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-[#4598e2] focus:border-[#4598e2]"
-                            >
-                                <option value="default">Please select</option>
-                                <option value="digitalPhoto">Digital Photo</option>
-                                <option value="artworkOnly">My Artwork (Frame only)</option>
-                                <option value="generateAI">Generate via AI</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={selectedService}
+                                    onChange={(e) => setSelectedService(e.target.value)}
+                                    className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-[#4598e2] focus:border-[#4598e2]"
+                                >
+                                    <option value="default">Please select</option>
+                                    <option
+                                        value="digitalPhoto"
+                                        title="Perfect if you have a digital photo or artwork that needs to be printed and custom framed."
+                                    >
+                                        Digital Photo
+                                    </option>
+                                    <option
+                                        value="artworkOnly"
+                                        title="Ideal if you already have the artwork and just need a custom frame to fit it."
+                                    >
+                                        My Artwork (Frame only)
+                                    </option>
+                                    <option
+                                        value="pickupArtwork"
+                                        title="Have us pick up your artwork, and we’ll handcraft the frame exactly as you design it online."
+                                    >
+                                        Artwork Pick-up Service
+                                    </option>
+                                </select>
+                            </div>
 
-                            {/* Tooltip / Description */}
-                            {showTooltip && selectedService !== "default" && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {selectedService === "digitalPhoto" &&
-                                        "For digital photos/art that need to be printed and framed."}
-                                    {selectedService === "myArtwork" &&
-                                        "For existing artwork that needs a frame."}
-                                    {selectedService === "generateAI" &&
-                                        "Generate an artwork via AI to frame."}
+                            {/* Description fade-in/out */}
+                            {showDescription && selectedService !== "default" && (
+                                <p className="text-sm text-gray-600 mt-2 transition-opacity duration-700 ease-in-out animate-fadeIn">
+                                    {descriptions[selectedService]}
                                 </p>
                             )}
-                        </div>
 
-                        {/* WhatsApp help message */}
-                        <p className="text-sm text-gray-500 mt-1">
-                            Choose an option to continue or{" "}
-                            <a
-                                href={`https://wa.me/919899354550?text=${encodeURIComponent(
-                                    "Hi Team Wall Vastra, I have a query regarding frame customization. Kindly call me back to assist."
-                                )}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#25D366] underline font-medium"
-                            >
-                                WhatsApp us
-                            </a>{" "}
-                            if you have any questions
-                        </p>
-                    </div>
+                            {/* WhatsApp help message */}
+                            <p className="text-sm text-gray-500 mt-2">
+                                Choose an option to continue or{" "}
+                                <a
+                                    href={`https://wa.me/919899354550?text=${encodeURIComponent(
+                                        "Hi Team Wall Vastra, I have a query regarding frame customization. Kindly call me back to assist."
+                                    )}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#25D366] underline font-medium"
+                                >
+                                    WhatsApp us
+                                </a>{" "}
+                                if you have any questions.
+                            </p>
+
+                            {/* fade-in animation */}
+                            <style>{`
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.4s ease-in-out;
+      }
+    `}</style>
+                        </div>
+                    )}
 
                     {/* Show upload section only when Digital Photo is selected */}
                     {selectedService === "digitalPhoto" && (
                         <div className="mt-4 py-4 shadow-sm">
-                            <p className="text-gray-700 font-medium mb-2">
-                                Great! Upload your photo and then choose a size.{" "}
-                                <button
-                                    onClick={() => alert("Explain how it works here or open a modal")}
-                                    className="text-[#4598e2] underline hover:text-[#346fa9] ml-1"
-                                >
-                                    How it works
-                                </button>
-                            </p>
-
-                            <button
-                                className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-200 hover:text-black"
-                                onClick={() => console.log("Select Photo clicked")}
-                            >
-                                Select Photo
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Art Type Card */}
-                    {/* Show Art Type only for Print and Frame or Studio Mail-in */}
-                    {selectedService && selectedService !== "" && (
-                        <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
-                            <table className="table-auto w-full text-sm">
-                                <tbody>
-                                    <tr
-                                        onClick={() => setOpenRow(!openRow)}
-                                        className="cursor-pointer bg-white hover:bg-gray-100 transition-colors border-b border-gray-200"
+                            {showFramingOptions && (
+                                <p className="text-gray-700 font-medium mb-2">
+                                    Great! Upload your photo and then choose a size.{" "}
+                                    <button
+                                        onClick={() => alert("Explain how it works here or open a modal")}
+                                        className="text-[#4598e2] underline hover:text-[#346fa9] ml-1"
                                     >
-                                        <td className="px-2 py-2 text-gray-700 font-semibold">
-                                            Art Type
-                                        </td>
-                                        <td className="px-2 py-2 flex justify-end">
-                                            <div className="w-5"> {/* fixed width wrapper */}
-                                                <ChevronRightIcon
-                                                    className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openRow ? "rotate-90" : ""}`}
-                                                />
+                                        How it works
+                                    </button>
+                                </p>)}
+
+                            {/* --- Select Photo Button --- */}
+                            {!showOptions && (
+                                <button
+                                    onClick={() => {
+                                        setShowOptions(true);
+                                        handlePhotoSelect();
+                                    }}
+                                    className="w-1/2 flex items-center justify-center gap-2 bg-[#752650] text-white font-semibold px-6 py-3 text-lg hover:bg-gray-200 hover:text-black transition-all duration-300 shadow-lg hover:shadow-xl"
+                                >
+                                    <CloudArrowUpIcon className="w-6 h-6" />
+                                    Select Photo
+                                </button>
+                            )}
+
+                            {/* --- Full Options Section (Visible after click) --- */}
+                            {showOptions && (
+                                <div className="mt-6 space-y-4 animate-fadeIn">
+                                    <p className="text-xl font-semibold text-gray-900">Select Print Size</p>
+                                    <p className="text-gray-600 text-sm">
+                                        Based on the resolution of your image, these are the sizes we can recommend for high-quality framed prints.
+                                    </p>
+                                    <div className="mt-6">
+                                        {/* Print Size Select + Icons */}
+                                        <div className="flex items-center gap-4">
+                                            {/* Select Dropdown */}
+                                            <label className="flex-1">
+                                                <select className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-[#752650]">
+                                                    <optgroup label="Small (starting at $59)">
+                                                        <option>4.0" x 9.0"</option>
+                                                        <option selected>4.5" x 10.0"</option>
+                                                    </optgroup>
+                                                    <optgroup label="Medium (~$76)">
+                                                        <option>5.5" x 12.0"</option>
+                                                    </optgroup>
+                                                </select>
+                                            </label>
+
+                                            {/* Crop & Upload Buttons */}
+                                            <div className="flex items-center gap-2">
+                                                <button className="p-3 bg-gray-200 rounded-full hover:bg-gray-300 transition" title="Crop your Photo?">
+                                                    <ScissorsIcon className="w-5 h-5 text-gray-700" />
+                                                </button>
+                                                <button className="p-3 bg-gray-200 rounded-full hover:bg-gray-300 transition" title="Upload a New Photo?">
+                                                    <CloudArrowUpIcon className="w-5 h-5 text-gray-700" />
+                                                </button>
                                             </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td colSpan={2} className="p-0">
-                                            <div className={`transition-all duration-500 overflow-hidden ${openRow ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"}`}>
-                                                <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-2">
-                                                    {artOptions.map((item) => (
-                                                        <div key={item.title} className="flex items-center justify-between p-2 border rounded mb-2">
-                                                            <div>
-                                                                <p className="font-semibold text-gray-800">{item.title}</p>
-                                                                <p className="text-gray-500 text-xs">{item.desc}</p>
-                                                            </div>
-                                                            <input
-                                                                type="radio"
-                                                                name="artType"
-                                                                value={item.title}
-                                                                checked={tempSelection === item.title}
-                                                                onChange={(e) => setTempSelection(e.target.value)}
-                                                                className="accent-[#4598e2] w-4 h-4"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                    <div className="flex justify-between mt-2">
-                                                        <button
-                                                            onClick={applySelection}
-                                                            className="text-white px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto transition-colors bg-[#752650] hover:bg-gray-200 hover:text-black"
-                                                        >
-                                                            APPLY
-                                                        </button>
-                                                        <button
-                                                            onClick={cancelSelection}
-                                                            className="border border-gray-400 px-3 py-1.5 sm:px-4 sm:py-2 text-base md:text-lg lg:text-xl w-full sm:w-auto  hover:bg-black hover:text-white"
-                                                        >
-                                                            CANCEL
-                                                        </button>
-                                                    </div>
+                                        </div>
+
+                                        {/* Links */}
+                                        <p className="text-sm mt-4 text-gray-600 flex items-center flex-wrap gap-2">
+                                            {/* More Options */}
+                                            <button
+                                                onClick={() => setShowMoreOptions(!showMoreOptions)}
+                                                className="text-[#752650] underline"
+                                            >
+                                                More Options ({showMoreOptions ? "–" : "+"})
+                                            </button>
+
+                                            <span>|</span>
+
+                                            {/* Guide Modal */}
+                                            {showGuideModal && <PrintSizeGuide onClose={() => setShowGuideModal(false)} />}
+                                            <button
+                                                onClick={() => setShowGuideModal(true)}
+                                                className="text-[#752650] underline flex items-center gap-1"
+                                            >
+                                                Guide <InformationCircleIcon className="inline w-4 h-4" />
+                                            </button>
+
+                                            <span>|</span>
+
+                                            {/* Resolution */}
+                                            <span>
+                                                Resolution: <span className="text-green-600 font-medium">120 ✔</span>
+                                            </span>
+                                        </p>
+
+
+                                        {/* More Options Section (toggle visible) */}
+                                        {showMoreOptions && (
+                                            <div className="mt-4 rounded-lg p-4 space-y-3 text-sm text-gray-700">
+                                                <p className="flex items-center gap-2">
+                                                    <ArrowsPointingOutIcon className="w-4 h-4 text-gray-600" />
+                                                    <a href="#" className="underline text-[#752650]">
+                                                        Enter a Custom Print Size
+                                                    </a>
+                                                </p>
+                                                <p className="flex items-center gap-2">
+                                                    <SparklesIcon className="w-4 h-4 text-gray-600" />
+                                                    <a href="#" className="underline text-[#752650]">
+                                                        Boost Resolution with AI Enhance
+                                                    </a>
+                                                </p>
+                                                <p className="flex items-center gap-2">
+                                                    <ScissorsIcon className="w-4 h-4 text-gray-600" />
+                                                    <a href="#" className="underline text-[#752650]">
+                                                        Crop Photo
+                                                    </a>
+                                                </p>
+                                                <p className="flex items-center gap-2">
+                                                    <AdjustmentsHorizontalIcon className="w-4 h-4 text-gray-600" />
+                                                    <a href="#" className="underline text-[#752650]">
+                                                        Convert to Black & White
+                                                    </a>
+                                                </p>
+
+                                                {/* Paper Type Dropdown */}
+                                                <div className="mt-4">
+                                                    <p className="font-medium text-gray-800">
+                                                        Paper Type{" "}
+                                                        <a href="#" className="text-[#752650] underline">
+                                                            <InformationCircleIcon className="inline w-4 h-4" />
+                                                        </a>
+                                                    </p>
+                                                    <select className="w-full border border-gray-300 rounded-md mt-2 p-2 focus:ring-2 focus:ring-[#752650]">
+                                                        <option>Photo Paper Lustre Finish</option>
+                                                        <option>Archival Matte Art Paper</option>
+                                                        <option>Textured Watercolor</option>
+                                                    </select>
                                                 </div>
                                             </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                        )}
+                                    </div>
+
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Art Dimensions Card */}
-                    <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
+                    {/* Print Type Section */}
+                    <div className="bg-white rounded-md overflow-hidden transition-all duration-500 ">
                         <table className="table-auto w-full text-sm">
                             <tbody>
                                 <tr
-                                    onClick={() => setOpenDimensions(!openDimensions)}
+                                    onClick={() => setOpenPrintType(!openPrintType)}
                                     className="cursor-pointer bg-white hover:bg-gray-100 transition-colors border-b border-gray-200"
                                 >
-                                    <td className="px-2 py-2 text-gray-700 font-semibold">Art Dimensions</td>
-                                    <td className="px-2 py-2 flex justify-end">
-                                        <ChevronRightIcon
-                                            className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openDimensions ? "rotate-90" : ""
-                                                }`}
-                                        />
+                                    <td colSpan={2} className="px-2 py-2">
+                                        <div className="flex items-center justify-between w-full">
+                                            {/* Left side: Print Type + Info button */}
+                                            <div className="flex items-center gap-2 text-gray-700 font-semibold">
+                                                Print Type
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowPrintInfo(!showPrintInfo);
+                                                    }}
+                                                    className="text-gray-500 hover:text-[#4598e2] transition"
+                                                    title="What is Print Type?"
+                                                >
+                                                    ℹ️
+                                                </button>
+                                            </div>
+
+                                            {/* Right side: Chevron */}
+                                            <ChevronRightIcon
+                                                className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openPrintType ? "rotate-90" : ""
+                                                    }`}
+                                            />
+                                        </div>
                                     </td>
                                 </tr>
-
+                                {/* Dropdown content */}
                                 <tr>
                                     <td colSpan={2} className="p-0">
                                         <div
-                                            className={`transition-all duration-500 overflow-hidden ${openDimensions ? "max-h-[350px] opacity-100" : "max-h-0 opacity-0"
+                                            className={`transition-all duration-500 overflow-hidden ${openPrintType ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
                                                 }`}
                                         >
                                             <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-3">
-                                                {/* Aspect Ratio Lock */}
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="lockAspect"
-                                                        checked={lockAspect}
-                                                        onChange={() => setLockAspect(!lockAspect)}
-                                                    />
-                                                    <label htmlFor="lockAspect" className="text-sm text-gray-700 font-medium">
-                                                        Lock aspect ratio
-                                                    </label>
-                                                </div>
-
-                                                {/* Width & Height */}
-                                                <div className="flex flex-wrap gap-4">
-                                                    {/* Width */}
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="text-gray-700 font-semibold">Width (in)</label>
+                                                {["Glossy Print", "Matte Print", "Canvas Print"].map((type) => (
+                                                    <div
+                                                        key={type}
+                                                        className="flex items-center justify-between p-2 border rounded mb-2"
+                                                    >
+                                                        <p className="font-semibold text-gray-800">{type}</p>
                                                         <input
-                                                            type="number"
-                                                            value={artWidth}
-                                                            min={1}
-                                                            max={72}
-                                                            onChange={(e) => {
-                                                                const newWidth = parseFloat(e.target.value);
-                                                                if (!newWidth || newWidth <= 0) return;
-
-                                                                if (lockAspect && artHeight > 0) {
-                                                                    const aspect = artWidth / artHeight;
-                                                                    const newHeight = newWidth / aspect;
-                                                                    setArtHeight(Number(newHeight.toFixed(2)));
-                                                                    updatePhotoScale(newWidth, newHeight);
-                                                                } else {
-                                                                    setArtWidth(newWidth);
-                                                                    updatePhotoScale(newWidth, artHeight);
-                                                                }
-                                                                setArtWidth(newWidth);
-                                                            }}
-                                                            className="border rounded p-1 w-20"
+                                                            type="radio"
+                                                            name="printType"
+                                                            value={type}
+                                                            checked={selectedPrintType === type}
+                                                            onChange={(e) => setSelectedPrintType(e.target.value)}
+                                                            className="accent-[#4598e2] w-4 h-4"
                                                         />
                                                     </div>
-
-                                                    {/* Height */}
-                                                    <div className="flex items-center gap-2">
-                                                        <label className="text-gray-700 font-semibold">Height (in)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={artHeight}
-                                                            min={1}
-                                                            max={72}
-                                                            onChange={(e) => {
-                                                                const newHeight = parseFloat(e.target.value);
-                                                                if (!newHeight || newHeight <= 0) return;
-
-                                                                if (lockAspect && artWidth > 0) {
-                                                                    const aspect = artWidth / artHeight;
-                                                                    const newWidth = newHeight * aspect;
-                                                                    setArtWidth(Number(newWidth.toFixed(2)));
-                                                                    updatePhotoScale(newWidth, newHeight);
-                                                                } else {
-                                                                    setArtHeight(newHeight);
-                                                                    updatePhotoScale(artWidth, newHeight);
-                                                                }
-                                                                setArtHeight(newHeight);
-                                                            }}
-                                                            className="border rounded p-1 w-20"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Calculated dimensions */}
-                                                <div className="text-gray-700 text-sm space-y-1 mt-2">
-                                                    <p>
-                                                        <span className="font-semibold">Frame interior:</span>{" "}
-                                                        {(artWidth + 3).toFixed(2)} × {(artHeight + 3).toFixed(2)} in
-                                                    </p>
-                                                    <p>
-                                                        <span className="font-semibold">Frame exterior:</span>{" "}
-                                                        {(artWidth + 3.875).toFixed(2)} × {(artHeight + 3.875).toFixed(2)} in
-                                                    </p>
-                                                    <p>
-                                                        <span className="font-semibold">Paper dimensions:</span>{" "}
-                                                        {artWidth} × {artHeight} in
-                                                    </p>
-                                                </div>
-
-                                                {/* Apply / Cancel */}
-                                                <div className="flex justify-between mt-3">
+                                                ))}
+                                                {/* Apply / Cancel buttons */}
+                                                <div className="flex justify-between mt-2">
                                                     <button
                                                         onClick={() => {
-                                                            setAppliedDimensions({ width: artWidth, height: artHeight });
-                                                            setOpenDimensions(false);
-                                                            updatePhotoScale(artWidth, artHeight); // ✅ keep this
+                                                            setAppliedPrintType(selectedPrintType);
+                                                            setOpenPrintType(false);
                                                         }}
-
-                                                        className="text-white bg-[#752650] hover:bg-gray-200 hover:text-black px-4 py-2 transition"
+                                                        className="text-white px-4 py-2 bg-[#752650] hover:bg-gray-200 hover:text-black transition-colors rounded w-full sm:w-auto"
                                                     >
                                                         APPLY
                                                     </button>
-
                                                     <button
                                                         onClick={() => {
-                                                            setArtWidth(appliedDimensions.width);
-                                                            setArtHeight(appliedDimensions.height);
-                                                            setOpenDimensions(false);
-                                                            updatePhotoScale(appliedDimensions.width, appliedDimensions.height);
+                                                            setSelectedPrintType(appliedPrintType);
+                                                            setOpenPrintType(false);
                                                         }}
-
-                                                        className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition"
+                                                        className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition w-full sm:w-auto"
                                                     >
                                                         CANCEL
                                                     </button>
@@ -599,7 +660,255 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                                 </tr>
                             </tbody>
                         </table>
+
+                        {/* Info Popup */}
+                        {showPrintInfo && (
+                            <div className="absolute bg-white text-black border rounded shadow-lg p-4 w-72 mt-2 right-4 z-10">
+                                <p className="font-semibold mb-1">Print Type Descriptions:</p>
+                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                    <li>
+                                        <b>Glossy Print:</b> Sharp, vibrant colors with a shiny finish. Ideal
+                                        for photos.
+                                    </li>
+                                    <li>
+                                        <b>Matte Print:</b> Soft, non-reflective finish. Great for artwork or
+                                        professional framing.
+                                    </li>
+                                    <li>
+                                        <b>Canvas Print:</b> Printed on textured canvas for a painted look and
+                                        gallery-style presentation.
+                                    </li>
+                                </ul>
+                                <button
+                                    onClick={() => setShowPrintInfo(false)}
+                                    className="mt-3 text-sm text-[#4598e2] underline hover:text-[#346fa9]"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Art Type Card */}
+                    {showFramingOptions && selectedService && selectedService !== "" && (
+                        <div className="transition-all duration-500">
+                            {/* --- Art Type Section --- */}
+                            <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
+                                <table className="table-auto w-full text-sm">
+                                    <tbody>
+                                        <tr
+                                            onClick={() => setOpenRow(!openRow)}
+                                            className="cursor-pointer bg-white hover:bg-gray-100 transition-colors border-b border-gray-200"
+                                        >
+                                            <td className="px-2 py-2 text-gray-700 font-semibold">Art Type</td>
+                                            <td className="px-2 py-2 flex justify-end">
+                                                <ChevronRightIcon
+                                                    className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openRow ? "rotate-90" : ""
+                                                        }`}
+                                                />
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td colSpan={2} className="p-0">
+                                                <div
+                                                    className={`transition-all duration-500 overflow-hidden ${openRow ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
+                                                        }`}
+                                                >
+                                                    <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-2">
+                                                        {artOptions.map((item) => (
+                                                            <div
+                                                                key={item.title}
+                                                                className="flex items-center justify-between p-2 border rounded mb-2"
+                                                            >
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-800">
+                                                                        {item.title}
+                                                                    </p>
+                                                                    <p className="text-gray-500 text-xs">{item.desc}</p>
+                                                                </div>
+                                                                <input
+                                                                    type="radio"
+                                                                    name="artType"
+                                                                    value={item.title}
+                                                                    checked={tempSelection === item.title}
+                                                                    onChange={(e) => setTempSelection(e.target.value)}
+                                                                    className="accent-[#4598e2] w-4 h-4"
+                                                                />
+                                                            </div>
+                                                        ))}
+
+                                                        {/* Apply / Cancel */}
+                                                        <div className="flex justify-between mt-2">
+                                                            <button
+                                                                onClick={applySelection}
+                                                                className="text-white px-4 py-2 bg-[#752650] hover:bg-gray-200 hover:text-black transition-colors rounded w-full sm:w-auto"
+                                                            >
+                                                                APPLY
+                                                            </button>
+                                                            <button
+                                                                onClick={cancelSelection}
+                                                                className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition w-full sm:w-auto"
+                                                            >
+                                                                CANCEL
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* --- Art Dimensions Section --- */}
+                            <div className="bg-white rounded-md overflow-hidden transition-all duration-500 mt-4">
+                                <table className="table-auto w-full text-sm">
+                                    <tbody>
+                                        <tr
+                                            onClick={() => setOpenDimensions(!openDimensions)}
+                                            className="cursor-pointer bg-white hover:bg-gray-100 transition-colors border-b border-gray-200"
+                                        >
+                                            <td className="px-2 py-2 text-gray-700 font-semibold">
+                                                Art Dimensions
+                                            </td>
+                                            <td className="px-2 py-2 flex justify-end">
+                                                <ChevronRightIcon
+                                                    className={`w-5 h-5 text-gray-500 transform transition-transform duration-300 ${openDimensions ? "rotate-90" : ""
+                                                        }`}
+                                                />
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td colSpan={2} className="p-0">
+                                                <div
+                                                    className={`transition-all duration-500 overflow-hidden ${openDimensions ? "max-h-[350px] opacity-100" : "max-h-0 opacity-0"
+                                                        }`}
+                                                >
+                                                    <div className="bg-gray-50 border-t border-gray-200 px-3 py-3 space-y-3">
+
+                                                        {/* Aspect Ratio Lock */}
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                id="lockAspect"
+                                                                checked={lockAspect}
+                                                                onChange={() => setLockAspect(!lockAspect)}
+                                                            />
+                                                            <label
+                                                                htmlFor="lockAspect"
+                                                                className="text-sm text-gray-700 font-medium"
+                                                            >
+                                                                Lock aspect ratio
+                                                            </label>
+                                                        </div>
+                                                        {/* Width & Height Inputs */}
+                                                        <div className="flex flex-wrap gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-gray-700 font-semibold">
+                                                                    Width (in)
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={artWidth}
+                                                                    min={1}
+                                                                    max={72}
+                                                                    onChange={(e) => {
+                                                                        const newWidth = parseFloat(e.target.value);
+                                                                        if (!newWidth || newWidth <= 0) return;
+                                                                        if (lockAspect && artHeight > 0) {
+                                                                            const aspect = artWidth / artHeight;
+                                                                            const newHeight = newWidth / aspect;
+                                                                            setArtHeight(Number(newHeight.toFixed(2)));
+                                                                            updatePhotoScale(newWidth, newHeight);
+                                                                        } else {
+                                                                            updatePhotoScale(newWidth, artHeight);
+                                                                        }
+                                                                        setArtWidth(newWidth);
+                                                                    }}
+                                                                    className="border rounded p-1 w-20"
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-gray-700 font-semibold">
+                                                                    Height (in)
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={artHeight}
+                                                                    min={1}
+                                                                    max={72}
+                                                                    onChange={(e) => {
+                                                                        const newHeight = parseFloat(e.target.value);
+                                                                        if (!newHeight || newHeight <= 0) return;
+                                                                        if (lockAspect && artWidth > 0) {
+                                                                            const aspect = artWidth / artHeight;
+                                                                            const newWidth = newHeight * aspect;
+                                                                            setArtWidth(Number(newWidth.toFixed(2)));
+                                                                            updatePhotoScale(newWidth, newHeight);
+                                                                        } else {
+                                                                            updatePhotoScale(artWidth, newHeight);
+                                                                        }
+                                                                        setArtHeight(newHeight);
+                                                                    }}
+                                                                    className="border rounded p-1 w-20"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Calculated Display */}
+                                                        <div className="text-gray-700 text-sm space-y-1 mt-2">
+                                                            <p>
+                                                                <span className="font-semibold">Frame interior:</span>{" "}
+                                                                {(artWidth + 3).toFixed(2)} × {(artHeight + 3).toFixed(2)} in
+                                                            </p>
+                                                            <p>
+                                                                <span className="font-semibold">Frame exterior:</span>{" "}
+                                                                {(artWidth + 3.875).toFixed(2)} × {(artHeight + 3.875).toFixed(2)} in
+                                                            </p>
+                                                            <p>
+                                                                <span className="font-semibold">Paper dimensions:</span>{" "}
+                                                                {artWidth} × {artHeight} in
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Apply / Cancel */}
+                                                        <div className="flex justify-between mt-3">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setAppliedDimensions({ width: artWidth, height: artHeight });
+                                                                    setOpenDimensions(false);
+                                                                    updatePhotoScale(artWidth, artHeight);
+                                                                }}
+                                                                className="text-white bg-[#752650] hover:bg-gray-200 hover:text-black px-4 py-2 transition rounded"
+                                                            >
+                                                                APPLY
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    setArtWidth(appliedDimensions.width);
+                                                                    setArtHeight(appliedDimensions.height);
+                                                                    setOpenDimensions(false);
+                                                                    updatePhotoScale(appliedDimensions.width, appliedDimensions.height);
+                                                                }}
+                                                                className="border border-gray-400 px-4 py-2 rounded hover:bg-black hover:text-white transition"
+                                                            >
+                                                                CANCEL
+                                                            </button>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 4. UPLOAD / GENERATE AI */}
                     {/* Show Upload / Generate AI only for Print and Frame */}
@@ -882,21 +1191,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                         <p><span className="font-semibold">Paper dimensions:</span> {artWidth} × {artHeight} inches</p>
                     </div>
 
-                    {/* 10. ADD TO CART BUTTON */}
-                    <div className="flex gap-2 mt-2">
-                        <button className="w-full bg-[#752650] text-white px-4 py-2.5 hover:bg-gray-100 hover:text-black transition-colors flex items-center justify-between ">
-
-                            {/* Left: Icon + Text */}
-                            <span className="flex items-center gap-1.5">
-                                <ShoppingCartIcon className="w-4 h-4" />
-                                Add to Cart
-                            </span>
-                            {/* Right: Price */}
-                            <span className="font-semibold text-sm">$120</span>
-                        </button>
-                    </div>
-
-                    <div className="w-1/2 flex items-center">
+                    <div className="w-full flex items-center">
                         <button onClick={toggleAdvanced} className="w-full border border-gray-400 text-blue-600 py-2 px-3 rounded hover:bg-gray-100 flex justify-between items-center transition-colors">
                             Advanced Options
                             <span className="ml-2 text-xl">{advancedOpen ? "-" : "+"}</span>
@@ -1047,6 +1342,20 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             </div>
                         </div>
                     )}
+
+                    {/* 10. ADD TO CART BUTTON */}
+                    <div className="flex gap-2 mt-2">
+                        <button className="w-full bg-[#752650] text-white px-4 py-2.5 hover:bg-gray-100 hover:text-black transition-colors flex items-center justify-between ">
+
+                            {/* Left: Icon + Text */}
+                            <span className="flex items-center gap-1.5">
+                                <ShoppingCartIcon className="w-4 h-4" />
+                                Add to Cart
+                            </span>
+                            {/* Right: Price */}
+                            <span className="font-semibold text-sm">$120</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

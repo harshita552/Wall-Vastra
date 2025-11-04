@@ -7,7 +7,7 @@ import frameModel from "../assets/frame_1_naming.glb";
 
 // Frame 3D model component
 function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = false, frameTexture, selectedMatStyle = "No Mat", frameThickness = 1, // ✅ Add default
-  floatType ,   matWidth = { top: 0, bottom: 0, left: 0, right: 0 }
+  floatType, matWidth = { top: 0, bottom: 0, left: 0, right: 0 }
 }) {
   const { scene } = useGLTF(frameModel);
   const modelRef = useRef();
@@ -459,19 +459,33 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
 
     const texture = new THREE.TextureLoader().load(croppedImageUrl);
     texture.flipY = false;
+    texture.colorSpace = THREE.SRGBColorSpace;
 
     if (window.__photoMesh) {
       window.__photoMesh.material.map = texture;
       window.__photoMesh.material.needsUpdate = true;
 
-      // 🧠 Auto-adjust frame based on image aspect ratio
+      // 🧠 Maintain frame size — only adjust Photo mesh aspect ratio
       const img = new Image();
       img.src = croppedImageUrl;
       img.onload = () => {
         const aspect = img.width / img.height;
-        const baseHeight = 10;
-        const newWidth = baseHeight * aspect;
-        window.__applyFrameSize(newWidth / 8, baseHeight / 10); // scale proportionally to your reference base
+
+        // Reset to original scale if not stored yet
+        if (!window.__photoMesh.userData.originalScale) {
+          window.__photoMesh.userData.originalScale = window.__photoMesh.scale.clone();
+        }
+
+        const original = window.__photoMesh.userData.originalScale.clone();
+
+        // Adjust only width relative to height to maintain aspect
+        window.__photoMesh.scale.set(
+          original.y * aspect,
+          original.y,
+          original.z
+        );
+
+        console.log("📸 Adjusted photo aspect ratio only (no frame zoom).");
       };
     }
   };
@@ -486,7 +500,7 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
   );
 }
 // Forward ref to allow download
-const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selectedMatStyle, frameThickness, floatType,   matWidth }, ref) => {
+const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selectedMatStyle, frameThickness, floatType, matWidth }, ref) => {
   const canvasRef = useRef();
   const sceneRef = useRef();
   const cameraRef = useRef();
@@ -542,7 +556,7 @@ const GlbFrame = forwardRef(({ targetTilt, locked = false, frameTexture, selecte
             selectedMatStyle={selectedMatStyle} // ✅ ADD THIS
             frameThickness={frameThickness} // ✅ add this
             floatType={floatType} // ✅ ADD THIS LINE
-              matWidth={matWidth}  // ✅ NEW PROP
+            matWidth={matWidth}  // ✅ NEW PROP
 
           />
           <Environment preset="studio" />
