@@ -6,6 +6,7 @@ import Cropper from "react-easy-crop";
 import getCroppedImg from "../utils/cropImage.js";
 import * as THREE from "three";
 import PrintSizeGuide from "./PrintSizeGuide.jsx";
+import axios from "../api/axios.js"
 
 const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
@@ -113,6 +114,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     const [tempSelection, setTempSelection] = useState("Photo Print");
     const [advancedOpen, setAdvancedOpen] = useState(false);
     const [floatType, setFloatType] = useState("none");
+    const [printTypes, setPrintTypes] = useState([]);
 
     const toggleAdvanced = () => setAdvancedOpen(!advancedOpen);
     // Canvas edge selection
@@ -166,7 +168,7 @@ const CollageLayoutSelector = ({ onSelectLayout }) => {
     useEffect(() => {
         if (selectedService !== "default") {
             setShowDescription(true);
-            const timer = setTimeout(() => setShowDescription(false), 4000); // hides after 4s
+            const timer = setTimeout(() => setShowDescription(false), 10000); // hides after 10s
             return () => clearTimeout(timer);
         }
     }, [selectedService]);
@@ -274,24 +276,42 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
         }
     };
 
-    const handleApplyCrop = async () => {
-        if (!selectedFile || !croppedAreaPixels) return;
+   const handleApplyCrop = async () => {
+  if (!selectedFile || !croppedAreaPixels) return;
 
-        // pass true to flip horizontally
-        const croppedImageUrl = await getCroppedImg(
-            URL.createObjectURL(selectedFile),
-            croppedAreaPixels,
-            true // 👈 flip horizontally
-        );
+  const croppedImageUrl = await getCroppedImg(
+    URL.createObjectURL(selectedFile),
+    croppedAreaPixels
+  );
 
-        const texture = new THREE.TextureLoader().load(croppedImageUrl);
-        texture.flipY = false;
+  const texture = new THREE.TextureLoader().load(croppedImageUrl);
+  texture.flipY = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
 
-        if (window.__photoMesh) {
-            window.__photoMesh.material.map = texture;
-            window.__photoMesh.material.needsUpdate = true;
-        }
+  const photoMesh = window.__photoMesh;
+  if (photoMesh) {
+    photoMesh.material = new THREE.MeshStandardMaterial({
+      map: texture,
+      side: THREE.FrontSide,
+    });
+    photoMesh.material.needsUpdate = true;
+
+    const img = new Image();
+    img.src = croppedImageUrl;
+    img.onload = () => {
+      const aspect = img.width / img.height;
+      if (!photoMesh.userData.originalScale)
+        photoMesh.userData.originalScale = photoMesh.scale.clone();
+      const original = photoMesh.userData.originalScale.clone();
+      photoMesh.scale.set(original.y * aspect, original.y, original.z);
     };
+
+    console.log("✅ Cropped photo applied successfully");
+  } else {
+    console.warn("⚠️ No photo mesh found (window.__photoMesh missing)");
+  }
+};
+
 
     const [matWidth, setMatWidth] = useState({
         top: 0,
@@ -330,6 +350,22 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
     const [selectedPrintType, setSelectedPrintType] = useState("");
     const [appliedPrintType, setAppliedPrintType] = useState("");
     const [showPrintInfo, setShowPrintInfo] = useState(false);
+
+     // ✅ Fetch print types from backend
+    useEffect(() => {
+        axios
+            .get("/public/printing")
+            .then((res) => {
+                if (res.data && Array.isArray(res.data)) {
+                    setPrintTypes(res.data);
+                } else if (res.data?.data) {
+                    setPrintTypes(res.data.data);
+                }
+            })
+            .catch((err) => {
+                console.error("Error fetching print types:", err);
+            });
+    }, []);
 
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-screen container mx-0 max-w-full">
@@ -1077,7 +1113,7 @@ Elevated - Artwork is mounted to archival foamboard and floated 1/8" above the m
                             >
                                 <option value="0.75">0.75"</option>
                                 <option value="1">1"</option>
-                                <option value="1.625">1.625"</option>
+                                <option value="1.25">1.25"</option>
                             </select>{" "}
                             face and 1.125" depth.
                         </p>

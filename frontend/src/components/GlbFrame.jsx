@@ -186,97 +186,118 @@ function FrameModel({ defaultTilt = 1.5, hoverTilt = 0.6, targetTilt, locked = f
     });
   }, [selectedMatStyle]);
 
-  useEffect(() => {
-    // Identify meshes by name
-    const firstMatMeshes = [];
-    const secondMatMeshes = [];
-    let photoMesh = null;
+useEffect(() => {
+  if (!scene) return;
 
-    scene.traverse((mesh) => {
-      if (mesh.isMesh) {
-        if (mesh.name.includes("First_Mat")) firstMatMeshes.push(mesh);
-        if (mesh.name.includes("Second_Mat")) secondMatMeshes.push(mesh);
-        if (mesh.name === "Photo") photoMesh = mesh;
-      }
+  const firstMatMeshes = [];
+  let photoMesh = null;
+
+  scene.traverse((child) => {
+    if (!child.isMesh) return;
+
+    if (child.name.includes("First_Mat")) firstMatMeshes.push(child);
+    if (child.name === "Photo") photoMesh = child;
+  });
+
+  if (!photoMesh || firstMatMeshes.length === 0) return;
+
+  // ✅ Store original scales and positions ONCE
+  if (!window.__matOriginal) {
+    window.__matOriginal = {
+      photoScale: photoMesh.scale.clone(),
+      photoPos: photoMesh.position.clone(),
+
+      mats: firstMatMeshes.map(mesh => ({
+        mesh,
+        scale: mesh.scale.clone(),
+        pos: mesh.position.clone(),
+      }))
+    };
+  }
+
+  window.__updateMatScale = (value) => {
+    const inward = value * 0.05;
+
+    // ✅ 1) Grow mats from ALL SIDES
+    window.__matOriginal.mats.forEach(({ mesh, scale, pos }) => {
+      mesh.scale.set(
+        scale.x + inward,
+        scale.y + inward,
+        scale.z
+      );
+
+      // ✅ Re-center each mat manually
+      mesh.position.set(pos.x, pos.y, pos.z);
     });
 
-    // ✅ Store original scales for reset reference
-    const originalScales = {
-      photo: photoMesh ? photoMesh.scale.clone() : new THREE.Vector3(1, 1, 1),
-      firstMat: firstMatMeshes[0]
-        ? firstMatMeshes[0].scale.clone()
-        : new THREE.Vector3(1, 1, 1),
-      secondMat: secondMatMeshes[0]
-        ? secondMatMeshes[0].scale.clone()
-        : new THREE.Vector3(1, 1, 1),
-    };
+    // ✅ 2) Shrink photo inward, keep centered
+    const p = window.__matOriginal.photoScale;
+    const pPos = window.__matOriginal.photoPos;
 
-    window.__updateMatScale = (value) => {
-      const matScale = 1 / (1 + value * 0.03); // mats shrink inward
-      const photoScale = 1 + value * 0.06; // photo expands outward
+    photoMesh.scale.set(
+      p.x - inward,
+      p.y - inward,
+      p.z
+    );
 
-      // --- Scale only first mat inward ---
-      firstMatMeshes.forEach((mesh) => {
-        mesh.scale.setScalar(originalScales.firstMat.x * matScale);
+    // ✅ Photo stays perfectly centered (fix for GLB pivot issue)
+    photoMesh.position.set(pPos.x, pPos.y, pPos.z);
+  };
 
-        // ✅ Make mat area + inner space white
-        if (mesh.material) {
-          mesh.material.color = new THREE.Color("white");
-          mesh.material.needsUpdate = true;
-        }
-      });
+  // Apply default
+  window.__updateMatScale(0);
+}, [scene]);
 
-      // ✅ Make inner gray area white too (detect it by name)
-      const innerGrayMesh = window.__frameModel?.getObjectByName("Inner_Back") ||
-        window.__frameModel?.getObjectByName("Photo_Back") ||
-        window.__frameModel?.getObjectByName("Back_Plane");
-
-      if (innerGrayMesh && innerGrayMesh.material) {
-        innerGrayMesh.material.color = new THREE.Color("white");
-        innerGrayMesh.material.needsUpdate = true;
-      }
-
-      // --- Scale photo outward (uniformly) ---
-      if (photoMesh) {
-        const base = originalScales.photo;
-        const newScale = photoScale;
-
-        photoMesh.scale.set(
-          base.x * newScale,
-          base.y * newScale,
-          base.z * 1
-        );
-      }
-    };
-    // Set initial mat = 0
-    window.__updateMatScale(0);
-  }, [scene]);
 
   // ✅ Reactively update frame thickness
   useEffect(() => {
     const model = window.__frameModel;
-    if (!model) {
-      console.log("Frame model not loaded yet");
-      return;
-    }
+    if (!model) return;
+
     const frame = model.getObjectByName("FRAME_TOP");
     if (!frame) return;
-    if (!frame.userData.originalScale) {
-      frame.userData.originalScale = frame.scale.clone();
-      frame.userData.originalPos = frame.position.clone();
+
+    const DEPTH_MAP = {
+      0.75: 0.75,
+      1.0: 1.0,
+      1.25: 1.25,
+    };
+
+    // ✅ Get exact depth
+    const depthIn = DEPTH_MAP[frameThickness] || 1;
+
+    // ✅ Store original axes only once
+    if (!frame.userData.original) {
+      frame.userData.original = {
+        x: frame.scale.x,   // width
+        y: frame.scale.y,   // thickness axis (DO NOT touch height)
+        z: frame.scale.z,   // depth width
+      };
     }
-    const { x, y, z } = frame.userData.originalScale;
-    const { y: origY } = frame.userData.originalPos;
-    // ✅ Boost the perceived thickness a bit
-    const visualMultiplier = 1.3; // increase this for thicker look
-    const adjustedThickness = 1 + (frameThickness - 1) * visualMultiplier;
-    frame.scale.set(x, y * adjustedThickness, z);
-    // ✅ Make it expand more outward (so less goes inward)
-    const forwardOffset = 0.5 * (adjustedThickness - 1);
-    frame.position.y = origY + forwardOffset;
-    console.log("✅ Frame thickness changed (visual):", adjustedThickness);
-    frame.updateMatrixWorld(true);
+
+    const { x, y, z } = frame.userData.original;
+
+    /**
+     ✅ HERE IS THE IMPORTANT PART:
+     Your GLB thickness axis = Y
+     Your height axis = modelRef (not the individual frame)
+     */
+
+    // ✅ Scale ONLY the thickness axis (frame face depth)
+    const thicknessScale = depthIn / 1.0;
+
+    frame.scale.set(
+      x,            // ❌ do NOT touch width
+      y * thicknessScale, // ✅ only thickness changes
+      z             // ❌ do NOT touch Z: avoids width change
+    );
+
+    // ✅ No shifting up or down → keep position fixed
+    frame.position.y = frame.userData.originalPos?.y || frame.position.y;
+
+    console.log("✅ Correct depth applied:", depthIn, "(scale:", thicknessScale, ")");
   }, [frameThickness]);
+
 
   // Smooth rotation: hover + targetTilt
   useFrame(() => {
