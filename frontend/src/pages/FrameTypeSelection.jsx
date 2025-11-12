@@ -1,29 +1,38 @@
 // src/pages/FrameTypeSelection.jsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios.js";
 
 export default function FrameTypeSelection() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // ✅ Fetch categories from backend
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await API.get("/public/categories");
-        setCategories(res.data?.data || res.data || []); // handles both array or object
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-        setError("Failed to load frame categories. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCategories();
+  const fetchCategories = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await API.get("/public/categories");
+
+      const data = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+
+      setCategories(data);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      setError("Failed to load frame categories. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleSelect = (optionName) => {
     console.log(`Selected: ${optionName}`);
@@ -68,7 +77,7 @@ export default function FrameTypeSelection() {
 
       {/* Cards container */}
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full max-w-7xl">
-        {categories.map((category) => (
+        {categories && categories?.map((category) => (
           <div key={category._id} className="flex justify-center w-full">
             <div
               className="group cursor-pointer bg-gray-100 rounded-lg p-5 flex flex-col justify-between items-center w-full max-w-sm h-[420px] shadow-lg hover:shadow-2xl transition-transform transform hover:-translate-y-2"
@@ -77,7 +86,9 @@ export default function FrameTypeSelection() {
               {/* Image */}
               <div className="bg-gray-200 w-full h-52 rounded-lg border border-gray-300 overflow-hidden flex justify-center items-center">
                 <img
-                  src={category.imageUrl || "https://via.placeholder.com/300x200"}
+                  src={
+                    category.imageUrl || "https://via.placeholder.com/300x200"
+                  }
                   alt={category.name}
                   className="object-cover w-full h-full"
                 />
