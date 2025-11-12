@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Home from './pages/Home'; // FrameTypeSelection page
 import FrameTypeSelection from './pages/FrameTypeSelection';
 import ServiceSelection from './pages/ServiceSelection';
-import CollageLayoutSelector from './components/CollageLayoutSelector';
+import CollageLayoutSelector from './components/CollageLayoutSelector/CollageLayoutSelector';
 import GlbFrame from './components/GlbFrame';
 
 function App() {

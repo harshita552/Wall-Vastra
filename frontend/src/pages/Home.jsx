@@ -1,5 +1,5 @@
 // src/pages/Home.jsx
-import CollageLayoutSelector from '../components/CollageLayoutSelector';
+import CollageLayoutSelector from '../components/CollageLayoutSelector/CollageLayoutSelector';
 import FrameTypeSelection from './FrameTypeSelection';
 import ServiceSelection from './ServiceSelection';
 

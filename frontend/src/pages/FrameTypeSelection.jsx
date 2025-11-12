@@ -2,48 +2,48 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios.js";
+import BaseApi from "../utils/services/baseApi.js";
+import Spinner from "../components/Spinner/Spinner.jsx";
+import ErrorScreen from "../components/ErrorScreen/ErrorScreen.jsx";
 
 export default function FrameTypeSelection() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] =   useState(""); 
+
+  const baseApiService = new BaseApi(API);
 
   // ✅ Fetch categories from backend
-  useEffect(() => {
+ useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await API.get("/public/categories");
-        setCategories(res.data?.data || res.data || []); // handles both array or object
+        const data = await baseApiService.getCategories("/public/categories");
+
+        setCategories(Array.isArray(data) ? data : [data]);
       } catch (err) {
         console.error("Error fetching categories:", err);
-        setError("Failed to load frame categories. Please try again later.");
+        setError("Failed to load categories. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchCategories();
   }, []);
 
   const handleSelect = (optionName) => {
     console.log(`Selected: ${optionName}`);
-    navigate("/layout"); // Adjust this route as needed
+    navigate("/layout");
   };
 
-  // ✅ Loading / Error state UI
   if (loading) {
-    return (
-      <div className="min-h-screen flex justify-center items-center text-gray-600">
-        Loading frame options...
-      </div>
-    );
+    return <Spinner message="Loading frame options..."/>
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex justify-center items-center text-red-500">
-        {error}
-      </div>
+      <ErrorScreen message={error?.message ? error?.message : error} />
     );
   }
 
